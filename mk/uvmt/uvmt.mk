@@ -265,6 +265,9 @@ clone_dpi_dasm_spike:
 	$(CLONE_DPI_DASM_SPIKE_CMD)
 
 $(CV_CORE_PKG):
+	@echo "$(BANNER)"
+	@echo "* Cloning the RTL for the $(CV_CORE_UC)"
+	@echo "$(BANNER)"
 	$(CLONE_CV_CORE_CMD)
 
 $(RISCVDV_PKG):
@@ -280,6 +283,9 @@ $(DPI_DASM_SPIKE_PKG):
 	$(CLONE_DPI_DASM_SPIKE_CMD)
 
 $(CV_VERIF_PKG):
+	@echo "$(BANNER)"
+	@echo "* Cloning CORE-V-VERIF to $(CV_VERIF_PKG)"
+	@echo "$(BANNER)"
 	$(CLONE_CV_VERIF_CMD)
 
 ###############################################################################
