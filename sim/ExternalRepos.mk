@@ -14,9 +14,9 @@ CV_CORE_REPO   ?= https://github.com/openhwgroup/cve2
 CV_CORE_BRANCH ?= main
 CV_CORE_HASH   ?= ca6bc06
 
-CV_VERIF_REPO   ?= https://github.com/MikeOpenHWGroup/core-v-verif
-CV_VERIF_BRANCH ?= no_spike
-CV_VERIF_HASH   ?= 77d47dd
+CV_VERIF_REPO   ?= https://github.com/openhwgroup/core-v-verif
+CV_VERIF_BRANCH ?= cv32e20-dv/dev
+CV_VERIF_HASH   ?= head
 
 RISCVDV_REPO    ?= https://github.com/google/riscv-dv
 RISCVDV_BRANCH  ?= master
