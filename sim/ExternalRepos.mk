@@ -16,7 +16,7 @@ CV_CORE_HASH   ?= ca6bc06
 
 CV_VERIF_REPO   ?= https://github.com/MikeOpenHWGroup/core-v-verif
 CV_VERIF_BRANCH ?= no_spike
-CV_VERIF_HASH   ?= 77d47dd
+CV_VERIF_HASH   ?= e5d117b
 
 RISCVDV_REPO    ?= https://github.com/google/riscv-dv
 RISCVDV_BRANCH  ?= master

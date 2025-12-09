@@ -714,6 +714,9 @@ SPIKE_YAML_LIB = $(SPIKE_LIBS_DIR)/libyaml-cpp
 NUM_JOBS ?= 8
 
 $(SPIKE_FESVR_LIB).so $(SPIKE_RISCV_LIB).so:
+	@echo "$(BANNER)"
+	@echo "Building SPIKE"
+	@echo "$(BANNER)"
 	mkdir -p $(SPIKE_PATH)/build;
 	[ ! -f $(SPIKE_PATH)/build/config.log ] && cd $(SPIKE_PATH)/build && ../configure --prefix=$(SPIKE_INSTALL_DIR) || true
 	make -C $(SPIKE_PATH)/build/ -j $(NUM_JOBS) yaml-cpp-static;
