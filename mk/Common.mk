@@ -79,9 +79,10 @@ ifndef COMPLIANCE_REPO
 $(error Must define a COMPLIANCE_REPO to use the common makefile)
 endif
 
-ifndef DPI_DASM_SPIKE_REPO
-$(warning Must define a DPI_DASM_SPIKE_REPO to use the common makefile)
-endif
+# TODO: uncomment when Spike is integrated
+#ifndef DPI_DASM_SPIKE_REPO
+#$(warning Must define a DPI_DASM_SPIKE_REPO to use the common makefile)
+#endif
 
 ###############################################################################
 # Generate command to clone or symlink the core RTL
@@ -254,67 +255,96 @@ endif
 # Determine the values of the CV_SW_ variables.
 # The priority order is ENV > TEST > CFG.
 
+ifndef __ALWAYS_PRINT_THESE_MSGS__
+  $(info *******************************************************************************************)
+  $(info * Values of the CV_SW_* variables:)
+  $(info *******************************************************************************************)
+else
+  $(error __ALWAYS_PRINT_THESE_MSGS__ should not be defined.)
+endif
+
 ifndef CV_SW_TOOLCHAIN
-ifdef  TEST_CV_SW_TOOLCHAIN
-CV_SW_TOOLCHAIN = $(TEST_CV_SW_TOOLCHAIN)
+  ifdef  TEST_CV_SW_TOOLCHAIN
+    CV_SW_TOOLCHAIN = $(TEST_CV_SW_TOOLCHAIN)
+    $(info CV_SW_TOOLCHAIN = $(CV_SW_TOOLCHAIN))
+  else
+    ifdef  CFG_CV_SW_TOOLCHAIN
+      CV_SW_TOOLCHAIN = $(CFG_CV_SW_TOOLCHAIN)
+      $(info CV_SW_TOOLCHAIN = $(CV_SW_TOOLCHAIN))
+    else
+      $(error CV_SW_TOOLCHAIN not defined in either the shell environment, test.yaml or cfg.yaml)
+    endif
+  endif
 else
-ifdef  CFG_CV_SW_TOOLCHAIN
-CV_SW_TOOLCHAIN = $(CFG_CV_SW_TOOLCHAIN)
-else
-$(error CV_SW_TOOLCHAIN not defined in either the shell environment, test.yaml or cfg.yaml)
-endif
-endif
+  $(info CV_SW_TOOLCHAIN = $(CV_SW_TOOLCHAIN))
 endif
 
 ifndef CV_SW_PREFIX
-ifdef  TEST_CV_SW_PREFIX
-CV_SW_PREFIX = $(TEST_CV_SW_PREFIX)
+  ifdef  TEST_CV_SW_PREFIX
+    CV_SW_PREFIX = $(TEST_CV_SW_PREFIX)
+    $(info CV_SW_PREFIX = $(CV_SW_PREFIX))
+  else
+    ifdef  CFG_CV_SW_PREFIX
+      CV_SW_PREFIX = $(CFG_CV_SW_PREFIX)
+      $(info CV_SW_PREFIX = $(CV_SW_PREFIX))
+    else
+      $(error CV_SW_PREFIX not defined in either the shell environment, test.yaml or cfg.yaml)
+    endif
+  endif
 else
-ifdef  CFG_CV_SW_PREFIX
-CV_SW_PREFIX = $(CFG_CV_SW_PREFIX)
-else
-$(error CV_SW_PREFIX not defined in either the shell environment, test.yaml or cfg.yaml)
-endif
-endif
+  $(info CV_SW_PREFIX = $(CV_SW_PREFIX))
 endif
 
 ifndef CV_SW_MARCH
-ifdef  TEST_CV_SW_MARCH
-CV_SW_MARCH = $(TEST_CV_SW_MARCH)
+  ifdef  TEST_CV_SW_MARCH
+    CV_SW_MARCH = $(TEST_CV_SW_MARCH)
+    $(info CV_SW_MARCH = $(CV_SW_MARCH))
+  else
+    ifdef  CFG_CV_SW_MARCH
+      CV_SW_MARCH = $(CFG_CV_SW_MARCH)
+      $(info CV_SW_MARCH = $(CV_SW_MARCH))
+    else
+      CV_SW_MARCH = rv32imc
+      $(error CV_SW_MARCH not defined in either the shell environment, test.yaml or cfg.yaml)
+    endif
+  endif
 else
-ifdef  CFG_CV_SW_MARCH
-CV_SW_MARCH = $(CFG_CV_SW_MARCH)
-else
-CV_SW_MARCH = rv32imc
-$(warning CV_SW_MARCH not defined in either the shell environment, test.yaml or cfg.yaml)
-endif
-endif
+  $(info CV_SW_MARCH = $(CV_SW_MARCH))
 endif
 
-ifndef CV_SW_CC
-ifdef  TEST_CV_SW_CC
-CV_SW_CC = $(TEST_CV_SW_CC)
-else
-ifdef  CFG_CV_SW_CC
-CV_SW_CC = $(CFG_CV_SW_CC)
-else
-CV_SW_CC = gcc
-$(warning CV_SW_CC not defined in either the shell environment, test.yaml or cfg.yaml)
-endif
-endif
-endif
+# FIXME: is this even used?!?
+#ifndef CV_SW_CC
+#  ifdef  TEST_CV_SW_CC
+#    CV_SW_CC = $(TEST_CV_SW_CC)
+#  else
+#    ifdef  CFG_CV_SW_CC
+#      CV_SW_CC = $(CFG_CV_SW_CC)
+#    else
+#      CV_SW_CC = gcc
+#      $(error CV_SW_CC not defined in either the shell environment, test.yaml or cfg.yaml)
+#    endif
+#  endif
+#else
+#  $(info CV_SW_CC = $(CV_SW_CC))
+#endif
 
-ifndef CV_SW_CFLAGS
-ifdef  TEST_CV_SW_CFLAGS
-CV_SW_CFLAGS = $(TEST_CV_SW_CFLAGS)
-else
-ifdef  CFG_CV_SW_CFLAGS
-CV_SW_CFLAGS = $(CFG_CV_SW_CFLAGS)
-else
-$(warning CV_SW_CFLAGS not defined in either the shell environment, test.yaml or cfg.yaml)
-endif
-endif
-endif
+# TODO: add CV_SW_CFLAG to YAML2MAKE
+#ifndef CV_SW_CFLAGS
+#  ifdef  TEST_CV_SW_CFLAGS
+#    CV_SW_CFLAGS = $(TEST_CV_SW_CFLAGS)
+#  else
+#    ifdef  CFG_CV_SW_CFLAGS
+#      CV_SW_CFLAGS = $(CFG_CV_SW_CFLAGS)
+#    else
+#      $(error CV_SW_CFLAGS not defined in either the shell environment, test.yaml or cfg.yaml)
+#    endif
+#  endif
+#else
+#  $(info CV_SW_CFLAGS = $(CV_SW_CFLAGS))
+#endif
+
+###############################################################################
+# Determine the values of the RISC_ variables.
 
 RISCV            = $(CV_SW_TOOLCHAIN)
 RISCV_PREFIX     = $(CV_SW_PREFIX)
@@ -326,13 +356,19 @@ RISCV_CFLAGS     = $(CV_SW_CFLAGS)
 
 CFLAGS ?= -Os -g -static -mabi=ilp32 -march=$(RISCV_MARCH) -Wall -pedantic $(RISCV_CFLAGS)
 
-$(warning RISCV set to $(RISCV))
-$(warning RISCV_PREFIX set to $(RISCV_PREFIX))
-$(warning RISCV_EXE_PREFIX set to $(RISCV_EXE_PREFIX))
-$(warning RISCV_MARCH set to $(RISCV_MARCH))
-$(warning RISCV_CC set to $(RISCV_CC))
-$(warning RISCV_CFLAGS set to $(RISCV_CFLAGS))
-#$(error STOP IT!)
+ifndef __ALWAYS_PRINT_THESE_MSGS__
+  $(info *******************************************************************************************)
+  $(info * Values of the RISCV_* variables:)
+  $(info *******************************************************************************************)
+else
+  $(error __ALWAYS_PRINT_THESE_MSGS__ should not be defined.)
+endif
+$(info RISCV            = $(RISCV))
+$(info RISCV_PREFIX     = $(RISCV_PREFIX))
+$(info RISCV_EXE_PREFIX = $(RISCV_EXE_PREFIX))
+$(info RISCV_MARCH      = $(RISCV_MARCH))
+$(info RISCV_CC         = $(RISCV_CC))
+$(info RISCV_CFLAGS     = $(RISCV_CFLAGS))
 
 # Keeping this around just in case it is needed again
 #ifeq ($(firstword $(subst _, ,$(TEST))),pulp)
