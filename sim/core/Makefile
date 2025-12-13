@@ -55,12 +55,14 @@ CV_CORE_UC     = $(shell echo $(CV_CORE) | tr a-z A-Z)
 
 SIMULATOR     ?= $(CV_SIMULATOR)
 ifneq (${SIMULATOR}, verilator)
-  $(error Gotta be Verilator)
+  # TODO: should this testbench support other simulators?
+  $(warning setting SIMULATOR to verilator (for now))
+  SIMULATOR = verilator
 endif
 
 # Test-Program directores.
 # Relative path is used for Verilator which cannot seem to handle loooong pathnames.
-TEST_PROGRAM_PATH    = $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs/custom
+TEST_PROGRAM_PATH    = $(CV32E20_DV)/tests/programs/custom
 TEST_PROGRAM_RELPATH = ../../tests/programs/custom
 
 # Common output directories
@@ -75,25 +77,8 @@ SIM_BSP_RESULTS          = $(SIM_TEST_PROGRAM_RESULTS)/bsp
 SV_CMP_FLAGS =
 
 # Default "custom test-program"
-CUSTOM_PROG  ?= requested_csr_por
 TEST         ?= hello-world
-
-###############################################################################
-# Generate and include TEST_FLAGS_MAKE, based on the YAML test description.
-# An example of what is generated is below (not all of these flags are used):
-#       TEST_DESCRIPTION=Simple hello-world sanity test
-#       TEST_NAME=hello-world
-#       TEST_PROGRAM=hello-world
-#       TEST_TEST_DIR=/home/mike/GitHubRepos/MikeOpenHWGroup/core-v-verif/master/cv32e40p/tests/programs/custom/hello-world
-#       TEST_UVM_TEST=uvmt_$(CV_CORE_LC)_firmware_test_c
-
-YAML2MAKE = $(CV32E20_DV)/bin/yaml2make
-TEST_FLAGS_MAKE := $(shell $(YAML2MAKE) --test=$(TEST) --yaml=test.yaml  $(YAML2MAKE_DEBUG) --run-index=$(u) --prefix=TEST --core=$(CV_CORE))
-#TEST_FLAGS_MAKE := $(shell $(YAML2MAKE) --test=$(TEST) --yaml=test.yaml  $(YAML2MAKE_DEBUG) --run-index=$(u) --prefix=TEST --core=$(PATH2TESTS))
-ifeq ($(TEST_FLAGS_MAKE),)
-$(warning $(TEST_FLAGS_MAKE): ERROR Could not find test.yaml for test: $(TEST))
-endif
-include $(TEST_FLAGS_MAKE)
+CFG          ?= default
 
 ###############################################################################
 # Common Makefiles:
@@ -106,7 +91,8 @@ include $(CV32E20_DV)/mk/Common.mk
 # verilator configuration
 VERILATOR           = verilator
 VERI_FLAGS         +=
-VERI_COMPILE_FLAGS += -Wno-BLKANDNBLK $(SV_CMP_FLAGS) # hope this doesn't hurt us in the long run
+VERI_WAIVERS       += -Wno-COMBDLY -Wno-MULTIDRIVEN -Wno-BLKANDNBLK -Wno-lint --Wno-UNOPTFLAT -Wno-MODDUP # hope this doesn't hurt us in the long run
+VERI_COMPILE_FLAGS += $(VERI_WAIVERS) $(SV_CMP_FLAGS)
 VERI_TRACE         ?=
 VERI_OBJ_DIR       ?= cobj_dir
 #VERI_LOG_DIR       ?= cobj_dir/logs
@@ -114,7 +100,8 @@ VERI_LOG_DIR       ?= $(SIM_TEST_PROGRAM_RESULTS)
 VERI_CFLAGS        += -O2
 
 # TB source files for the CV32E20 core
-TBSRC_HOME  := $(CORE_V_VERIF)/$(CV_CORE_LC)/tb
+#TBSRC_HOME  := $(CORE_V_VERIF)/$(CV_CORE_LC)/tb
+TBSRC_HOME  := $(CV32E20_DV)/tb
 TBSRC_TOP   := $(TBSRC_HOME)/core/tb_top.sv
 TBSRC_CORE  := $(TBSRC_HOME)/core
 TBSRC_PKG   := $(TBSRC_CORE)/tb_riscv/include/perturbation_defines.sv
@@ -132,7 +119,8 @@ TBSRC       := $(TBSRC_CORE)/tb_top.sv \
 RTLSRC_VLOG_TB_TOP	:= $(basename $(notdir $(TBSRC_TOP)))
 RTLSRC_VOPT_TB_TOP	:= $(addsuffix _vopt, $(RTLSRC_VLOG_TB_TOP))
 
-TBSRC_VERI  := $(TBSRC_CORE)/tb_top_verilator.sv \
+#TBSRC_VERI  := $(TBSRC_CORE)/tb_top_verilator.sv
+TBSRC_VERI  := $(TBSRC_CORE)/tb_top.sv \
                $(TBSRC_CORE)/cv32e20_tb_wrapper.sv \
                $(TBSRC_CORE)/tb_riscv/riscv_rvalid_stall.sv \
                $(TBSRC_CORE)/tb_riscv/riscv_gnt_stall.sv \
@@ -142,7 +130,7 @@ SIM_LIBS    := $(CORE_V_VERIF)/lib/sim_libs
 
 # RTL source files for the CV32E20 core
 # DESIGN_RTL_DIR is used by CV_CORE_MANIFEST file
-CV_CORE_PKG           := $(CORE_V_VERIF)/core-v-cores/$(CV_CORE_LC)
+CV_CORE_PKG           := $(CV32E20_DV)/core-v-cores/$(CV_CORE_LC)
 CV_CORE_RTLSRC_INCDIR := $(CV_CORE_PKG)/rtl/include
 CV_CORE_RTLSRC_PKG    := $(CV_CORE_PKG)/rtl/fpnew/src/fpnew_pkg.sv \
                          $(addprefix $(CV_CORE_RTLSRC_INCDIR)/,\
@@ -161,50 +149,30 @@ check:
 	@echo "CV32E20_DV      = $(CV32E20_DV)"
 	@echo "CORE_V_VERIF    = $(CORE_V_VERIF)"
 	@echo "TEST_FLAGS_MAKE = $(TEST_FLAGS_MAKE)"
-	@echo "FLAGS created by $(YAML2MAKE):"
+	@echo "TEST_FLAGS created by $(YAML2MAKE):"
 	@cat $(TEST_FLAGS_MAKE)
+	@echo "CFG_FLAGS_MAKE = $(CFG_FLAGS_MAKE)"
+	@echo "CFG_FLAGS created by $(CFGYAML2MAKE):"
+	@cat $(CFG_FLAGS_MAKE)
+	@echo "CLONE_CV_CORE_CMD = $(CLONE_CV_CORE_CMD)"
 
 # Shorthand rules for convience
-CV_CORE_pkg: clone_$(CV_CORE_LC)_rtl
+CV_CORE_pkg: clone_rtl
 
 tbsrc_pkg: $(TBSRC_PKG)
 
 tbsrc: $(TBSRC)
 
 ###############################################################################
+# The sanity rule runs whatever is currently deemed to be the minimal test that
+# must be able to run (and pass!) prior to generating a pull-request.
+.DEFAULT_GOAL := sanity
 
+.PHONY: sanity
+sanity:
+	make test TEST=hello-world
 
-.PHONY: hello-world
-hello-world: $(SIMULATOR)-hello-world
-
-.PHONY: cv32_riscv_tests
-cv32_riscv_tests: $(SIMULATOR)-cv32_riscv_tests
-
-.PHONY: cv32_riscv_tests-gui
-cv32_riscv_tests-gui: $(SIMULATOR)-cv32_riscv_tests-gui
-
-.PHONY: cv32_riscv_compliance_tests
-cv32_riscv_compliance_tests: $(SIMULATOR)-cv32_riscv_compliance_tests
-
-.PHONY: cv32_riscv_compliance_tests-gui
-cv32_riscv_compliance_tests-gui: $(SIMULATOR)-cv32_riscv_compliance_tests-gui
-
-.PHONY: firmware
-firmware: $(SIMULATOR)-firmware
-
-.PHONY: firmware-gui
-firmware-gui: $(SIMULATOR)-firmware-gui
-
-.PHONY: unit-test
-unit-test: $(SIMULATOR)-unit-test
-
-.PHONY: unit-test-gui
-unit-test-gui: $(SIMULATOR)-unit-test-gui
-
-# assume verilator if no target chosen
-.DEFAULT_GOAL := sanity-veri-run
-
-all: clean_all sanity-veri-run dsim-sanity
+all: clean_all sanity
 
 ###############################################################################
 # Verilator
@@ -215,86 +183,82 @@ all: clean_all sanity-veri-run dsim-sanity
 #ifeq ($(findstring +vcd,$(VERI_FLAGS)),+vcd)
 
 ifneq (${WAVES}, 0)
-VERI_TRACE="--trace"
-VERI_CFLAGS+="-DVCD_TRACE"
+  VERI_TRACE      = "--trace"
+  VERI_RUN_FLAGS  = "+vcd"
+  VERI_CFLAGS    +="-DVCD_TRACE"
 endif
 
-verilate: testbench_verilator
-
-sanity-veri-run:
-	make veri-test TEST=hello-world
-
-testbench_verilator: CV_CORE_pkg $(TBSRC_VERI) $(TBSRC_PKG)
+verilate: CV_CORE_pkg $(TBSRC_VERI) $(TBSRC_PKG)
 	@echo "$(BANNER)"
-	@echo "* Compiling CORE TB and CV32E40P with Verilator"
+	@echo "* Compiling CORE TB and CV32E20 with Verilator"
 	@echo "$(BANNER)"
-	$(VERILATOR) --cc --sv --exe \
+	$(VERILATOR) --binary --cc --sv --exe \
 		$(VERI_TRACE) \
-		--Wno-lint --Wno-UNOPTFLAT \
-		--Wno-MODDUP --top-module \
-		tb_top_verilator $(TBSRC_VERI) \
+	        --top-module tb_top \
+		$(TBSRC_VERI) \
 		-f $(CV_CORE_MANIFEST) \
-		$(CV_CORE_PKG)/bhv/$(CV_CORE_LC)_core_log.sv \
-		$(TBSRC_CORE)/tb_top_verilator.cpp --Mdir $(VERI_OBJ_DIR) \
+		--Mdir $(VERI_OBJ_DIR) \
 		-CFLAGS "-std=gnu++14 $(VERI_CFLAGS)" \
 		$(VERI_COMPILE_FLAGS)
-	$(MAKE) -C $(VERI_OBJ_DIR) -f Vtb_top_verilator.mk
 	mkdir -p $(SIM_RESULTS)
 	mkdir -p $(SIM_TEST_RESULTS)
-	mv $(VERI_OBJ_DIR)/Vtb_top_verilator $(SIM_TEST_RESULTS)/verilator_executable
+	mv $(VERI_OBJ_DIR)/Vtb_top $(SIM_TEST_RESULTS)/verilator_executable
 
-veri-test: verilate $(TEST_PROGRAM_PATH)/$(TEST)/$(TEST).hex
+test: verilate $(TEST_PROGRAM_PATH)/$(TEST)/$(TEST).hex
 	@echo "$(BANNER)"
 	@echo "* Running with Verilator: logfile in $(SIM_TEST_RESULTS)/$(TEST).log"
 	@echo "$(BANNER)"
 	mkdir -p $(VERI_LOG_DIR)
 	$(SIM_TEST_RESULTS)/verilator_executable \
-		$(VERI_FLAGS) \
+		$(VERI_RUN_FLAGS) \
+		"+verbose" \
 		"+firmware=$(TEST_PROGRAM_RELPATH)/$(TEST)/$(TEST).hex" \
 		| tee $(VERI_LOG_DIR)/$(TEST).log
 
 # verilator specific cleanup
-veri-clean: verilate-clean
-
-verilate-clean: tc-clean
+verilator-clean:
 	if [ -d $(SIM_RESULTS) ]; then rm -r $(SIM_RESULTS); fi
 	if [ -d $(VERI_OBJ_DIR) ]; then rm -r $(VERI_OBJ_DIR); fi
-	rm -rf testbench_verilator
 	if [ -e memory_dump.bin ]; then rm memory_dump.bin; fi
+	if [ -e cv32e20_tb.vcd ]; then rm cv32e20_tb.vcd; fi
 
 
 ###############################################################################
 # CV_CORE RTL dependencies
 
-clone_$(CV_CORE_LC)_rtl:
+clone_rtl:
 	@echo "$(BANNER)"
 	@echo "* Cloning CV32E20 RTL model"
 	@echo "$(BANNER)"
 	$(CLONE_CV_CORE_CMD)
 
 ###############################################################################
-# general targets
-.PHONY: tc-clean
-
 # clean up simulation results
 clean-sim-results:
 	rm -rf $(SIM_RESULTS)
 
 # clean up toolchain generated files
 clean-test-programs:
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name *.o       -exec rm {} \;
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name *.hex     -exec rm {} \;
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name *.elf     -exec rm {} \;
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name *.map     -exec rm {} \;
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name *.readelf -exec rm {} \;
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name *.objdump -exec rm {} \;
-	find $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs -name corev_*.S -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name *.o       -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name *.hex     -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name *.elf     -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name *.map     -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name *.readelf -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name *.objdump -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name corev_*.S -exec rm {} \;
 
-.PHONY: clean clean_all distclean
-clean: clean-sim-results clean-test-programs verilate-clean firmware-clean
+clean-all-targets: clean-dist clean-cloned clean-sim-results clean-test-programs verilator-clean
 
-distclean: clean
-	rm -rf riscv-fesvr riscv-isa-sim $(CV_CORE_PKG) work
+clean-dist:
+	rm -rf riscv-fesvr riscv-isa-sim
 
-clean_all: distclean
+clean-cloned:
+	rm -rf $(CV_CORE_PKG) $(CORE_V_VERIF)
+
+clean-all-banner:
+	@echo "$(BANNER)"
+	@echo "* Delete all generated files (yes, we mean ALL)"
+	@echo "$(BANNER)"
+
+clean_all: clean-all-banner clean-all-targets
 #endend

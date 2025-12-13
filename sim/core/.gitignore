@@ -1,0 +1,13 @@
+platform.info
+memory_dump.bin
+riscv-fesvr
+riscv-isa-sim
+modelsim.ini
+DVEfiles
+csrc
+inter.vpd
+ucli.key
+vc_hdrs.h
+.clang-format
+*.vcd
+cobj_dir
