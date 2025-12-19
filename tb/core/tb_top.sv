@@ -1,4 +1,4 @@
-// Top level wrapper for a RI5CY testbench
+// Top level testbench for the CV32E20
 // 
 // Copyright 2025 OpenHW Foundation
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-0.51
@@ -17,13 +17,12 @@
 // Contributor: Robert Balas <balasr@student.ethz.ch>
 //              Jeremy Bennett <jeremy.bennett@embecosm.com>
 
-`define TB_CORE
 `timescale 1ns/100ps
 
 module tb_top
     #(parameter INSTR_RDATA_WIDTH = 32,
       parameter RAM_ADDR_WIDTH    = 22,
-      parameter BOOT_ADDR         = 'h80
+      parameter BOOT_ADDR         = 'h100 // must be 256-byte aligned (cannot be 'h80)
      );
 
     const int CLK_PHASE_HI        = 5;
@@ -47,13 +46,15 @@ module tb_top
     logic                   exit_valid;
     logic [31:0]            exit_value;
 
-    // for $display()
+    // strings for $display() and plusarg processing
     string id = "tb_top";
+    string wave_file;
 
-    // allow vcd dump
+    // dumps waves
     initial begin
-        if ($test$plusargs("vcd")) begin
-            $dumpfile("cv32e20_tb.vcd");
+        if ($value$plusargs("wave_file=%s", wave_file)) begin
+            $display("[%s] @ t=%0t: dumping waves to %s", id, $time, wave_file);
+            $dumpfile(wave_file);
             $dumpvars(0, tb_top);
         end
     end
@@ -61,16 +62,16 @@ module tb_top
     // we either load the provided firmware or execute a small test program that
     // doesn't do more than an infinite loop with some I/O
     initial begin: load_prog
-        automatic string firmware;
+        automatic string test_program;
         automatic int prog_size = 6;
 
-        if($value$plusargs("firmware=%s", firmware)) begin
+        if($value$plusargs("test_program=%s", test_program)) begin
             if($test$plusargs("verbose"))
-                $display("[%s] @ t=%0t: loading firmware %0s", id, $time, firmware);
-            $readmemh(firmware, cv32e20_tb_wrapper_inst.mm_ram_inst.dp_ram_inst.mem);
+                $display("[%s] @ t=%0t: loading test-program %0s", id, $time, test_program);
+            $readmemh(test_program, cv32e20_tb_wrapper_inst.mm_ram_inst.dp_ram_inst.mem);
         end else begin
-            $display("[%s] @ t=%0t: No firmware specified... terminating.", id, $time);
-            $finish;
+            $display("[%s] @ t=%0t: No test_program specified... terminating.", id, $time);
+            end_of_sim();
         end
     end
 
@@ -127,23 +128,43 @@ module tb_top
         end
     end
 
-    // check if we succeded
-    always_ff @(posedge core_clk) begin
+    // Check for virtual peripheral status flags that the test-program may (or
+    // may not) use to indicate the end of a test.
+    always_ff @(posedge core_clk) begin: vp_check
         if (tests_passed) begin
             $display("[%s] @ t=%0t: ALL TESTS PASSED", id, $time);
-            $finish;
+            end_of_sim();
         end
         if (tests_failed) begin
             $display("[%s] @ t=%0t: TEST(S) FAILED!", id, $time);
-            $finish;
+            end_of_sim();
         end
         if (exit_valid) begin
             if (exit_value == 0)
                 $display("[%s] @ %0t: EXIT SUCCESS", id, $time);
             else
                 $display("[%s] @ %0t: EXIT FAILURE: %d", id, $time, exit_value);
-            $finish;
+            end_of_sim();
         end
+    end
+
+    // End Of Simulation control:
+    //   - If the test-program invokes the virtual peripheral status flags
+    //     (see 'vp_check' block, above) then end_of_sim() is called and it
+    //     will trigger the 'final' block.
+    //   - If the test-program invokes the C stdlib macro EXIT_SUCCESS or
+    //     EXIT_FAILURE, then the simulation process is terminated and
+    //     end_of_sim() is never called.  In this case the 'final' block
+    //     is used to display the end of simulation messages, if any.
+    task end_of_sim();
+        $finish;
+    endtask
+
+    final begin
+        if (wave_file != "") begin
+	    $display("[%s] @ t=%0t: waves written to %s", id, $time, wave_file);
+	end
+	$display("\n[%s] @ t=%0t: Verilator simulation ending...", id, $time);
     end
 
     // wrapper for cv32e20, the memory and virtual peripherals.

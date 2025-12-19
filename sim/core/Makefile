@@ -47,7 +47,9 @@ MAKE_PATH     := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 CV32E20_DV     = $(abspath $(MAKE_PATH)/../../)
 CORE_V_VERIF   = $(CV32E20_DV)/vendor_lib/openhwgroup_core-v-verif
 DATE           = $(shell date +%F)
+WAVE          ?= 0
 WAVES         ?= 0
+WAVE_FILE     ?= cv32e20.fst
 
 CV_CORE       ?= cv32e20
 CV_CORE_LC     = $(shell echo $(CV_CORE) | tr A-Z a-z)
@@ -177,15 +179,15 @@ all: clean_all sanity
 ###############################################################################
 # Verilator
 
-# We first test if the user wants to to vcd dumping. This hacky part is required
-# because we need to conditionally compile the testbench (-DVCD_TRACE) and pass
-# the --trace flags to the verilator call
-#ifeq ($(findstring +vcd,$(VERI_FLAGS)),+vcd)
-
+# First test if the user wants to to wave dumping. Nobody ever remembers if it's
+# "WAVE" or "WAVES", so will work. We don't support VCD since the files are huge.
+ifneq (${WAVE}, 0)
+  WAVES = 1
+endif
 ifneq (${WAVES}, 0)
-  VERI_TRACE      = "--trace"
-  VERI_RUN_FLAGS  = "+vcd"
-  VERI_CFLAGS    +="-DVCD_TRACE"
+  VERI_TRACE      = --trace-fst
+  VERI_RUN_FLAGS  = +waves
+  VERI_WAVE_CMD   = +wave_file=$(SIM_RUN_RESULTS)/$(WAVE_FILE)
 endif
 
 verilate: CV_CORE_pkg $(TBSRC_VERI) $(TBSRC_PKG)
@@ -211,8 +213,9 @@ test: verilate $(TEST_PROGRAM_PATH)/$(TEST)/$(TEST).hex
 	mkdir -p $(VERI_LOG_DIR)
 	$(SIM_TEST_RESULTS)/verilator_executable \
 		$(VERI_RUN_FLAGS) \
-		"+verbose" \
-		"+firmware=$(TEST_PROGRAM_RELPATH)/$(TEST)/$(TEST).hex" \
+		$(VERI_WAVE_CMD) \
+		+verbose \
+		+test_program=$(TEST_PROGRAM_RELPATH)/$(TEST)/$(TEST).hex \
 		| tee $(VERI_LOG_DIR)/$(TEST).log
 
 # verilator specific cleanup

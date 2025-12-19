@@ -10,4 +10,5 @@ ucli.key
 vc_hdrs.h
 .clang-format
 *.vcd
+*.fst
 cobj_dir
