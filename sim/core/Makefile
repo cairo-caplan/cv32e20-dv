@@ -64,8 +64,13 @@ endif
 
 # Test-Program directores.
 # Relative path is used for Verilator which cannot seem to handle loooong pathnames.
+# TODO: find out if that is still true and if not, switch to abs paths.
 TEST_PROGRAM_PATH    = $(CV32E20_DV)/tests/programs/custom
 TEST_PROGRAM_RELPATH = ../../tests/programs/custom
+# 'Special' test-programs (see $(CV32E20_DV)/mk/Common.mk)
+TEST_FIXED_ELF ?=
+TEST_ACT       ?=
+ACT_MACROS      = $(CV32E20_DV)/bsp/act4
 
 # Common output directories
 RUN_INDEX               ?= 0
@@ -242,13 +247,13 @@ clean-sim-results:
 
 # clean up toolchain generated files
 clean-test-programs:
-	find $(CV32E20_DV)/tests/programs -name *.o       -exec rm {} \;
-	find $(CV32E20_DV)/tests/programs -name *.hex     -exec rm {} \;
-	find $(CV32E20_DV)/tests/programs -name *.elf     -exec rm {} \;
-	find $(CV32E20_DV)/tests/programs -name *.map     -exec rm {} \;
-	find $(CV32E20_DV)/tests/programs -name *.readelf -exec rm {} \;
-	find $(CV32E20_DV)/tests/programs -name *.objdump -exec rm {} \;
-	find $(CV32E20_DV)/tests/programs -name corev_*.S -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name "*.o"       -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name "*.hex"     -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name "*.elf"     -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name "*.map"     -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name "*.readelf" -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name "*.objdump" -exec rm {} \;
+	find $(CV32E20_DV)/tests/programs -name "corev_*.S" -exec rm {} \;
 
 clean-all-targets: clean-dist clean-cloned clean-sim-results clean-test-programs verilator-clean
 

@@ -333,7 +333,7 @@ ifndef CV_SW_CC
       $(info CV_SW_CC = $(CV_SW_CC))
     else
       CV_SW_CC = gcc
-      $(error CV_SW_CC not defined in either the shell environment, test.yaml or cfg.yaml)
+      $(info CV_SW_CC not defined in either the shell environment, test.yaml or cfg.yaml - setting to $(CV_SW_CC))
     endif
   endif
 else
@@ -366,7 +366,8 @@ RISCV_MARCH      = $(CV_SW_MARCH)
 RISCV_CC         = $(CV_SW_CC)
 RISCV_CFLAGS     = $(CV_SW_CFLAGS)
 
-CFLAGS ?= -Os -g -static -mabi=ilp32 -march=$(RISCV_MARCH) -Wall -pedantic $(RISCV_CFLAGS)
+#CFLAGS ?= -Os -g -static -mabi=ilp32 -march=$(RISCV_MARCH) -Wall -pedantic $(RISCV_CFLAGS)
+CFLAGS ?= -Os -g -static -mabi=ilp32 -march=$(RISCV_MARCH) $(RISCV_CFLAGS)
 
 ifndef __ALWAYS_PRINT_THESE_MSGS__
   $(info *******************************************************************************************)
@@ -518,6 +519,29 @@ ifeq ($(TEST_FIXED_ELF),1)
 	mkdir -p $(SIM_TEST_PROGRAM_RESULTS)
 	cp $(TEST_TEST_DIR)/$(TEST).elf $@
 else
+ifeq ($(TEST_ACT),1)
+%.elf: $(TEST_FILES)
+	mkdir -p $(SIM_TEST_PROGRAM_RESULTS)
+	make bsp ACT=1
+	@echo "$(BANNER)"
+	@echo "* Compiling ACT test-program $@"
+	@echo "$(BANNER)"
+	$(RISCV_EXE_PREFIX)$(RISCV_CC) \
+		$(CFG_CFLAGS) \
+		$(TEST_CFLAGS) \
+		$(RISCV_CFLAGS) \
+		-DSELFCHECK -DSIGNATURE -DXLEN=32 -DFLEN=32 \
+		-I $(BSP) \
+		-I $(ACT_MACROS) \
+		-o $@ \
+		-nostartfiles \
+		$(TEST_FILES) \
+		-T $(LD_FILE) \
+		$(LD_LIBRARY)
+#		-Wno-variadic-macros \
+#		-lcv-verif
+
+else
 %.elf: $(TEST_FILES)
 	mkdir -p $(SIM_TEST_PROGRAM_RESULTS)
 	make bsp
@@ -537,6 +561,7 @@ else
 		$(LD_LIBRARY) \
 		-lcv-verif
 endif
+endif
 
 .PHONY: hex
 
@@ -551,6 +576,7 @@ bsp:
 	cp $(BSP)/Makefile $(SIM_BSP_RESULTS)
 	make -C $(SIM_BSP_RESULTS) \
 		VPATH=$(BSP) \
+		ACT=$(ACT) \
 		RISCV=$(RISCV) \
 		RISCV_PREFIX=$(RISCV_PREFIX) \
 		RISCV_EXE_PREFIX=$(RISCV_EXE_PREFIX) \

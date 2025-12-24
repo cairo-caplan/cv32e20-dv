@@ -1,10 +1,12 @@
 # Copyright 2022 OpenHW Group
+# Copyright 2025 OpenHW Foundation
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
 # Makefile for the CV32E20 "Board Support Package".
 # The "BSP" is the bare-metal programming environment
-# for the CV32E20 in it's UVM testbench.
+# for the CV32E20 in it's testbench.
 
+BSP_DIR           = $(PWD)
 CV_SW_TOOLCHAIN  ?= /opt/riscv
 RISCV            ?= $(CV_SW_TOOLCHAIN)
 RISCV_EXE_PREFIX ?= $(RISCV)/bin/riscv32-unknown-elf-
@@ -14,6 +16,9 @@ SRC = crt0.S handlers.S syscalls.c vectors.S
 OBJ = crt0.o handlers.o syscalls.o vectors.o
 LIBCV-VERIF = libcv-verif.a 
 CFLAGS ?= -Os -g -static -mabi=ilp32 -march=$(CV_SW_MARCH) -Wall -pedantic
+ifneq (${ACT}, 0)
+  CFLAGS += -I $(BSP_DIR)/act4
+endif
 
 all: $(LIBCV-VERIF)
 
@@ -27,11 +32,12 @@ $(LIBCV-VERIF): $(OBJ)
 	$(RISCV_GCC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJ) $(LIBCV-VERIF)
+	rm -f $(OBJ) $(LIBCV-VERIF) $(LIBCV-CERT)
 
 
 vars:
 	@echo "make bsp variables:"
+	@echo "               ACT  = $(ACT)"
 	@echo "   CV_SW_TOOLCHAIN  = $(CV_SW_TOOLCHAIN)"
 	@echo "   CV_SW_MARCH      = $(CV_SW_MARCH)"
 	@echo "   RISCV            = $(RISCV)"
