@@ -55,6 +55,12 @@ CV_CORE       ?= cv32e20
 CV_CORE_LC     = $(shell echo $(CV_CORE) | tr A-Z a-z)
 CV_CORE_UC     = $(shell echo $(CV_CORE) | tr a-z A-Z)
 
+#TODO(Ateeb): Temporary, remove next 4 lines after debug
+CV_SW_TOOLCHAIN      ?= /opt/riscv
+CV_SW_PREFIX         ?= "riscv64-unknown-elf-"
+CV_SW_MARCH			 ?= rv32imc_zicsr_zifencei
+CV_SW_CC		 	 ?= gcc
+
 SIMULATOR     ?= $(CV_SIMULATOR)
 ifneq (${SIMULATOR}, verilator)
   # TODO: should this testbench support other simulators?

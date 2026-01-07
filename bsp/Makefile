@@ -14,6 +14,7 @@ SRC = crt0.S handlers.S syscalls.c vectors.S
 OBJ = crt0.o handlers.o syscalls.o vectors.o
 LIBCV-VERIF = libcv-verif.a 
 CFLAGS ?= -Os -g -static -mabi=ilp32 -march=$(CV_SW_MARCH) -Wall -pedantic
+CV_SW_MARCH		 ?= rv32imc_zicsr_zifencei		#TODO(Ateeb): Temporary, remove after debug
 
 all: $(LIBCV-VERIF)
 
