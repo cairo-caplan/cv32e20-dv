@@ -271,3 +271,72 @@ clean-all-banner:
 
 clean_all: clean-all-banner clean-all-targets
 #endend
+
+###############################################################################
+# certification test-program directories (prebuilt elf file copy-pasted from act4)
+certification_PROGRAM_PATH    = $(CV32E20_DV)/external/act4/work/cv32e20/elfs
+certification_PROGRAM_RELPATH = ../../external/act4/work/cv32e20/elfs
+
+###############################################################################
+# certification test target (run ALL ELFs under compliance/rv32, quiet + summary)
+.PHONY: gen
+gen: 
+	@echo "* Cleaning ACT4.0 directory..."
+	@$(MAKE) -C ../../external/act4/ clean
+	@echo "* Generating ACT4.0 tests..."
+	@$(MAKE) -C ../../external/act4/
+	@echo "* Tests generated in: $(certification_PROGRAM_RELPATH) "
+
+.PHONY: certify
+certify: TEST = certification
+certify: verilate
+	@echo "$(BANNER)"
+	@echo "* Running ALL compliance ELFs with Verilator"
+	@echo "$(BANNER)"
+	@set -e; \
+	mkdir -p "$(VERI_LOG_DIR)"; \
+	SUMMARY="$(VERI_LOG_DIR)/certification_summary.txt"; \
+	echo "RESULT  TEST" > "$$SUMMARY"; \
+	echo "------  ----" >> "$$SUMMARY"; \
+	ROOT="$(certification_PROGRAM_PATH)/rv32i"; \
+	ELFS="$$(find -L "$$ROOT" \( -type f -o -type l \) -a \( -iname '*.elf' -o -iname '*.elf32' \) 2>/dev/null | sort)"; \
+	if [ -z "$$ELFS" ]; then \
+	  echo "No .elf files found under $$ROOT"; \
+	  echo "Debug listing (2 levels):"; \
+	  find "$$ROOT" -maxdepth 2 -print || true; \
+	  exit 2; \
+	fi; \
+	PASS=0; FAIL=0; TOTAL=0; \
+	for ELF in $$ELFS; do \
+	  TOTAL=$$((TOTAL+1)); \
+	  REL="$${ELF#$$ROOT/}"; \
+	  BASE="$${ELF%.*}"; \
+	  HEX="$$BASE.hex"; \
+	  LOG="$(VERI_LOG_DIR)/$${REL%.*}.log"; \
+	  mkdir -p "$$(dirname "$$LOG")"; \
+	  if [ ! -f "$$HEX" ] || [ "$$ELF" -nt "$$HEX" ]; then \
+	    riscv64-unknown-elf-objcopy -O verilog "$$ELF" "$$HEX"; \
+	  fi; \
+	  set +e; \
+	  "$(SIM_TEST_RESULTS)/verilator_executable" \
+	    $(VERI_RUN_FLAGS) \
+	    $(VERI_WAVE_CMD) \
+	    "+test_program=$$HEX" \
+	    > "$$LOG" 2>&1; \
+	  RC=$$?; \
+	  set -e; \
+	  if [ $$RC -eq 0 ] && grep -q "ALL TESTS PASSED" "$$LOG"; then \
+	    echo "PASS    $$REL" | tee -a "$$SUMMARY"; \
+	    PASS=$$((PASS+1)); \
+	  else \
+	    echo "FAIL    $$REL" | tee -a "$$SUMMARY"; \
+	    FAIL=$$((FAIL+1)); \
+	  fi; \
+	done; \
+	echo "" | tee -a "$$SUMMARY"; \
+	echo "TOTAL=$$TOTAL PASS=$$PASS FAIL=$$FAIL" | tee -a "$$SUMMARY"; \
+	echo "Summary saved to: $$SUMMARY"; \
+	true
+
+.PHONY: gen-certify
+gen-certify: gen certify

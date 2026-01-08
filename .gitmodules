@@ -1,0 +1,4 @@
+[submodule "external/act4"]
+	path = external/act4
+	url = https://github.com/ateeb04/riscv-arch-test-act4.git
+	branch = dev-ateeb-act4-cv32e20
