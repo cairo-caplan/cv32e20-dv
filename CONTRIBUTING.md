@@ -1,3 +1,8 @@
+<!--
+Copyright 2026 OpenHW Foundation
+SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+-->
+
 # Contributing
 New Contributors are always welcome. Start by having a look at the **README**, and review open [Issues](https://github.com/openhwgroup/cv32e20-dv/issues) with a "Good First Issue" label.
 
