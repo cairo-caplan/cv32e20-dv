@@ -34,8 +34,8 @@ In the above header, "organization" should either be your employer, your institu
 - Otherwise, you may assign the copyright to yourself.  You may use your full name or email address as you see fit.
 
 ## The Mechanics
-1. [Fork](https://help.github.com/articles/fork-a-repo/) the [core-v-verif](https://github.com/openhwgroup/cv32e20-dv) repository
-2. Clone repository: `git clone https://github.com/[your_github_username]/core-v-verif`
+1. [Fork](https://help.github.com/articles/fork-a-repo/) the [cv32e20-dv](https://github.com/openhwgroup/cv32e20-dv) repository
+2. Clone repository: `git clone https://github.com/[your_github_username]/cv32e20-dv`
 3. Checkout the correct branch reflecting the nature of your contribution.  Nearly all contributions should target a _dev_ branch.
 4. Create your feature branch: `git checkout -b <my_branch>.`<br> Please uniquify your branch name.  See the [Git Cheats](https://github.com/openhwgroup/core-v-verif/blob/master/GitCheats.md) for a useful nominclature.
 5. Commit your changes: `git commit -m 'Add some feature' --signoff`
