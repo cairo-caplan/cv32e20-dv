@@ -284,7 +284,9 @@ gen:
 	@echo "* Cleaning ACT4.0 directory..."
 	@$(MAKE) -C ../../external/act4/ clean
 	@echo "* Generating ACT4.0 tests..."
-	@$(MAKE) -C ../../external/act4/
+	@$(MAKE) -C ../../external/act4/ \
+		EXTENSIONS=I,M,C,Zca,Zicsr,Zifencei \
+		CONFIG_FILES=config/duts/cve2/cv32e20/test_config.yaml
 	@echo "* Tests generated in: $(certification_PROGRAM_RELPATH) "
 
 .PHONY: certify
