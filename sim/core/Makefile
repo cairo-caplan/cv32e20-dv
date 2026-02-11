@@ -286,7 +286,8 @@ gen:
 	@echo "* Generating ACT4.0 tests..."
 	@$(MAKE) -C ../../external/act4/ \
 		EXTENSIONS=I,M,C,Zca,Zicsr,Zifencei \
-		CONFIG_FILES=config/duts/cve2/cv32e20/test_config.yaml
+		CV_SW_MARCH=rv32imc_zicsr_zifencei \
+		CONFIG_FILES=config/cores/cve2/cv32e20/test_config.yaml
 	@echo "* Tests generated in: $(certification_PROGRAM_RELPATH) "
 
 .PHONY: certify
