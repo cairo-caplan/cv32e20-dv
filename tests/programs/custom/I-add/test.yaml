@@ -1,4 +1,0 @@
-name: I-addi
-uvm_test: uvmt_$(CV_CORE_LC)_firmware_test_c
-description: >
-    ACT4.0 generated test for the RV32 'addi' instruction.

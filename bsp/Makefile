@@ -16,9 +16,6 @@ SRC = crt0.S handlers.S syscalls.c vectors.S
 OBJ = crt0.o handlers.o syscalls.o vectors.o
 LIBCV-VERIF = libcv-verif.a 
 CFLAGS ?= -Os -g -static -mabi=ilp32 -march=$(CV_SW_MARCH) -Wall -pedantic
-ifneq (${ACT}, 0)
-  CFLAGS += -I $(BSP_DIR)/act4
-endif
 
 all: $(LIBCV-VERIF)
 
@@ -32,12 +29,11 @@ $(LIBCV-VERIF): $(OBJ)
 	$(RISCV_GCC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJ) $(LIBCV-VERIF) $(LIBCV-CERT)
+	rm -f $(OBJ) $(LIBCV-VERIF)
 
 
 vars:
 	@echo "make bsp variables:"
-	@echo "               ACT  = $(ACT)"
 	@echo "   CV_SW_TOOLCHAIN  = $(CV_SW_TOOLCHAIN)"
 	@echo "   CV_SW_MARCH      = $(CV_SW_MARCH)"
 	@echo "   RISCV            = $(RISCV)"

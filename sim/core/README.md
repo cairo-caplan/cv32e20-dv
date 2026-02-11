@@ -14,31 +14,24 @@ RISC-V GCC Compiler "Toolchain"
 -------------------------------
 Pointers to the recommended toolchain for CV32E20 are in `../TOOLCHAIN`.
 
-Running your own C programs
----------------------
-A hello world program is available and you can run it in the CV32E20 Core testbench.
-Invoke the `hello-world-veri-run` Makefile target to run it with `Verilator`.
-
-The hello world program is located in the `custom` folder. The relevant sections
-in the Makefile on how to compile and link this program can be found under `Running
-custom programs`.  Make sure you have a working C compiler (see above) and keep in
-mind that you are running on a very basic machine.
-
 Running the testbench with [verilator](https://www.veripool.org/wiki/verilator)
 ----------------------
 Point your environment variable `RISCV` to your RISC-V toolchain. Call `make`
 to run the default test (hello_world).
 
-Running your own Assembler programs
------------------------------
-If you have a C or assembly program in `../../tests/core/custom`
-then the following will work with Verilator:<br>
+Running your own C or Assembler test-programs
+---------------------
+Manually written test-programs are located in the `custom` folder. The relevant sections
+in the Makefile on how to compile and link this program can be found under `Running
+custom programs`.  Make sure you have a working C compiler (see above) and keep in
+mind that you are running on a very basic machine.
+Try the following:<br>
 ```
-make veri-test TEST=dhrystone
-make veri-test TEST=misalign
-make veri-test TEST=fibonacci
-make veri-test TEST=illegal
-make veri-test TEST=riscv_ebreak_test_0
+make test TEST=dhrystone
+make test TEST=misalign
+make test TEST=fibonacci
+make test TEST=illegal
+make test TEST=riscv_ebreak_test_0
 ```
 
 <!--
@@ -80,9 +73,9 @@ Other rules of interest:
 * Clean up your mess: `make xsim-clean` (deletes xsim intermediate files) and `xrun-clean-all` (deletes xsim intermedaites and all testcase object files).
 -->
 
+<!--
 Running the testbench with Questa (vsim)
 ---------------------------------------------------------
-<!--
 FIXME
 Point your environment variable `RISCV` to your RISC-V toolchain. Call `make
 firmware-vsim-run` to build the testbench and the firmware, and run it. Use
@@ -120,10 +113,9 @@ riviera-hello-world` to build the testbench and the firmware, and run it. Use
 ASIM_FLAGS="-gui"`.
 -->
 
+<!--
 Options
 -------
 A few plusarg options are supported:
 * `+verbose` to show all memory read and writes and other miscellaneous information.
-
-* `+vcd` to produce a vcd file called `riscy_tb.vcd`. Verilator always produces
-  a vcd file called `verilator_tb.vcd`.
+-->
