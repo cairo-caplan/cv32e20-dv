@@ -394,8 +394,8 @@ ASM_DIR   ?= $(ASM)
 #
 # Note that the DSIM targets allow for writing the log-files to arbitrary
 # locations, so all of these paths are absolute, except those used by Verilator.
-#CORE_TEST_DIR                        = $(CORE_V_VERIF)/$(CV_CORE_LC)/tests/programs
-#BSP                                  = $(CORE_V_VERIF)/$(CV_CORE_LC)/bsp
+#CORE_TEST_DIR                        = $(CV32E20_DV)/$(CV_CORE_LC)/tests/programs
+#BSP                                  = $(CV32E20_DV)/$(CV_CORE_LC)/bsp
 CORE_TEST_DIR                        = $(CV32E20_DV)/tests/programs
 BSP                                  = $(CV32E20_DV)/bsp
 FIRMWARE                             = $(CORE_TEST_DIR)/firmware
@@ -471,14 +471,13 @@ FIRMWARE_UNIT_TEST_OBJS   =  	$(addsuffix .o, \
 		-M numeric \
 		-S \
 		$*.elf > $*.objdump
-
-#	$(RISCV_EXE_PREFIX)objdump \
-#                -d \
-#                -S \
-#                -M no-aliases \
-#                -M numeric \
-#                -l \
-#                $*.elf | $(CV32E20_DV)/bin/objdump2itb - > $*.itb
+	$(RISCV_EXE_PREFIX)objdump \
+		-d \
+		-S \
+		-M no-aliases \
+		-M numeric \
+		-l \
+		$*.elf | $(CV32E20_DV)/bin/objdump2itb - > $*.itb
 
 # Patterned targets to generate ELF.  Used only if explicit targets do not match.
 #
@@ -752,8 +751,8 @@ dpi_dasm: $(DPI_DASM_SPIKE_PKG)
 ###############################################################################
 # Build vendor/riscv-isa-sim into tools/
 
-export SPIKE_PATH  = $(CORE_V_VERIF)/vendor/riscv/riscv-isa-sim
-export SPIKE_INSTALL_DIR = $(CORE_V_VERIF)/tools/spike/
+export SPIKE_PATH  = $(CV32E20_DV)/vendor/riscv/riscv-isa-sim
+export SPIKE_INSTALL_DIR = $(CV32E20_DV)/tools/spike/
 SPIKE_LIBS_DIR = $(SPIKE_INSTALL_DIR)/lib/
 SPIKE_FESVR_LIB = $(SPIKE_LIBS_DIR)/libfesvr
 SPIKE_RISCV_LIB = $(SPIKE_LIBS_DIR)/libriscv
@@ -778,8 +777,8 @@ spike_lib: $(SPIKE_FESVR_LIB).so $(SPIKE_RISCV_LIB).so
 ###############################################################################
 # Build SVLIB DPI
 
-SVLIB_PKG        := $(CORE_V_VERIF)/vendor_lib/verilab/svlib
-export SVLIB_PKG  = $(CORE_V_VERIF)/vendor_lib/verilab/svlib
+SVLIB_PKG        := $(CV32E20_DV)/vendor_lib/verilab/svlib
+export SVLIB_PKG  = $(CV32E20_DV)/vendor_lib/verilab/svlib
 
 
 SVLIB_SRC    = $(SVLIB_PKG)/svlib/src/dpi/svlib_dpi.c
