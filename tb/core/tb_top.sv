@@ -1,6 +1,6 @@
 // Top level testbench for the CV32E20
 // 
-// Copyright 2025 OpenHW Foundation
+// Copyright 2025 Eclipse Foundation
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-0.51
 //
 // Copyright 2017 Embecosm Limited <www.embecosm.com>

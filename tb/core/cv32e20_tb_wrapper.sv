@@ -1,7 +1,7 @@
 // Wrapper for a CV32E20 "core" testbench,
 // containing CV32E20, Memory and virtual peripherals.
 //
-// Copyright 2025 OpenHW Foundation
+// Copyright 2025 Eclipse Foundation
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-0.51
 //
 // Copyright 2018 Robert Balas <balasr@student.ethz.ch>

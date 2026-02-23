@@ -1,6 +1,7 @@
 ###############################################################################
 #
-# Copyright 2020, 2025 OpenHW Foundation
+# Copyright 2025 Eclipse Foundation
+# Copyright 2020 OpenHW Foundation
 #
 # Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

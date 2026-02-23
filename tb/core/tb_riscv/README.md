@@ -1,4 +1,4 @@
-# CORE_TB: VERIFICATION COMPONETNS FOR THE CV32E CORES
+# CORE_TB: Verification Components for the CV32E cores
 
 Files and directories found here are adopted from the testbench for the PULP cores.
 They are now known as the `core` testbench of the CV32E** cores.
