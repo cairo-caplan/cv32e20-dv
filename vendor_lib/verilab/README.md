@@ -22,12 +22,12 @@ From any class or module simply address or import the svlib_pkg to access the SV
 
 ## Shared Library
 
-SVLIB is partially implemented in C accessed via the DPI in SystemVerilog.  A checked-in shared object (compile to Linux 64-bit) will enable
-out-of-the-box operation for most users.  However if one needs to recompile the SVLIB DPI this can be accomplished via the `svlib` make target.
-Note that each CV_CORE has a separate SVLIB directory.  Refer to `mk/Common.mk` for more details on the actual compilation and creation of the
-shared library and the variables provided to customize.
+SVLIB is partially implemented in C accessed via the SystemVerilog DPI.
+If necessary, the Makefiles will compile a shared object for you.
+You can recompile the SVLIB DPI via the `svlib` make target.
+Refer to `mk/Common.mk` for more details on the actual compilation and creation of the shared library and the variables provided to customize.
 
 
 ```
-% make svlib CV_CORE=cv32e20
+$ make svlib
 ```
