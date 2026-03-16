@@ -78,7 +78,7 @@ module uvmt_cv32e20_tb;
    uvmt_cv32e20_isa_covg_if     isa_covg_if();
 
    bind cve2_core
-    uvma_rvfi_instr_if rvfi_instr_vif(
+    uvma_rvfi_instr_if rvfi_instr_probe_if(
                                 .clk            ( clknrst_if.clk),
                                 .reset_n        ( clknrst_if.reset_n),
 
@@ -113,7 +113,7 @@ module uvmt_cv32e20_tb;
                                 .*
     );
   bind cve2_cs_registers
-    uvma_rvfi_unified_csr_if#(4096,32) rvfi_csr_vif(
+    uvma_rvfi_unified_csr_if#(4096,32) rvfi_csr_probe_if(
                             .clk                  ( clknrst_if.clk),
                             .reset_n              ( clknrst_if.reset_n),
                             .rvfi_named_csr_rmask (rvfi_csr_if.rvfi_named_csr_rmask),
@@ -346,8 +346,8 @@ module uvmt_cv32e20_tb;
      uvm_config_db#(virtual uvmt_cv32e20_isa_covg_if          )::set(.cntxt(null), .inst_name("*.env"),                        .field_name("isa_covg_vif"),     .value(isa_covg_if)                                );
      uvm_config_db#(virtual uvma_interrupt_if                 )::set(.cntxt(null), .inst_name("*.env"),                        .field_name("intr_vif"),         .value(interrupt_if)                               );
      uvm_config_db#(virtual uvma_debug_if                     )::set(.cntxt(null), .inst_name("*.env"),                        .field_name("debug_vif"),        .value(debug_if)                                   );
-     uvm_config_db#(virtual uvma_rvfi_instr_if                )::set(.cntxt(null), .inst_name("*.env.rvfi_agent"),             .field_name("instr_vif0"),       .value(dut_wrap.cv32e20_top_i.u_cve2_top.u_cve2_core.rvfi_instr_vif));
-     uvm_config_db#(virtual uvma_rvfi_unified_csr_if#(4096,32))::set(.cntxt(null), .inst_name("*.env.rvfi_agent"),             .field_name("csr_vif0"),         .value(dut_wrap.cv32e20_top_i.u_cve2_top.u_cve2_core.cs_registers_i.rvfi_csr_vif));
+     uvm_config_db#(virtual uvma_rvfi_instr_if                )::set(.cntxt(null), .inst_name("*.env.rvfi_agent"),             .field_name("instr_vif0"),       .value(dut_wrap.cv32e20_top_i.u_cve2_top.u_cve2_core.rvfi_instr_probe_if));
+     uvm_config_db#(virtual uvma_rvfi_unified_csr_if#(4096,32))::set(.cntxt(null), .inst_name("*.env.rvfi_agent"),             .field_name("csr_vif0"),         .value(dut_wrap.cv32e20_top_i.u_cve2_top.u_cve2_core.cs_registers_i.rvfi_csr_probe_if));
      // TODO: fix this
      //uvm_config_db#(virtual RVVI_memory                      )::set(.cntxt(null), .inst_name("*.env"),                        .field_name("rvvi_memory_vif"),  .value(iss_wrap.ram.memory)                        );
 
