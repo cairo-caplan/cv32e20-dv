@@ -28,7 +28,7 @@
  * Module encapsulating the CV32E20 DUT wrapper, and associated SV interfaces.
  * Also provide UVM environment entry and exit points.
  */
- `default_nettype none
+`default_nettype none
 module uvmt_cv32e20_tb;
 
    import uvm_pkg::*;

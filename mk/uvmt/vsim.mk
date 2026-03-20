@@ -149,7 +149,6 @@ VLOG_FLAGS += "+define+$(CV_CORE_UC)_TRACE_EXECUTION"
 VLOG_FLAGS += "+define+UVM"
 VLOG_FLAGS += "+define+$(CORE_DEFINES)"
 
-
 ###############################################################################
 # VOPT (Optimization)
 VOPT_FLAGS    ?= \
@@ -173,7 +172,7 @@ VSIM_FLAGS       += -suppress 8522
 VSIM_FLAGS       += -suppress 8550
 VSIM_FLAGS       += -suppress 8549
 VSIM_FLAGS       += -permit_unmatched_virtual_intf
-VSIM_FLAGS       += -voptargs=+acc
+# VSIM_FLAGS       += -voptargs=+acc # Preserve signals for debugging
 VSIM_DEBUG_FLAGS ?= -debugdb
 VSIM_GUI_FLAGS   ?= -gui
 VSIM_SCRIPT_DIR   = $(abspath $(MAKE_PATH)/../tools/vsim)
@@ -284,7 +283,7 @@ else
 	WAVES_CMD = \
 		cd $(SIM_RUN_RESULTS) && \
 			$(VSIM) \
-				-gui \
+				$(VSIM_GUI_FLAGS) \
 				-view vsim.wlf
 endif
 
@@ -524,9 +523,6 @@ RUN_DIR = $(abspath $(SIM_RUN_RESULTS))
 # Target to run VSIM (i.e. run the simulation)
 run: $(VSIM_RUN_PREREQ) gen_ovpsim_ic
 	@echo "$(BANNER)"
-	@echo ""
-	@echo "run target"
-	@echo ""
 	@echo "* Running vsim in $(RUN_DIR)"
 	@echo "* Log: $(RUN_DIR)/vsim-$(VSIM_TEST).log"
 	@echo "$(BANNER)"

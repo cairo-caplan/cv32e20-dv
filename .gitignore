@@ -51,3 +51,4 @@ tools/verilator*
 *.signature_output
 ucli.key
 vcs.cmd
+venv*
