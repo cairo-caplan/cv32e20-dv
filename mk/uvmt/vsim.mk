@@ -31,7 +31,9 @@ VISUALIZER              = $(CV_TOOL_PREFIX) visualizer
 VCOVER                  = vcover
 
 # Paths
-QUESTASIM_HOME         ?= $(abspath $(shell which $(VLIB))/../../)
+
+# QUESTASIM_HOME needs to be exported for Spike support (EDA_INCLUDES var)
+export QUESTASIM_HOME  ?= $(abspath $(shell which $(VLIB))/../../)
 VWORK                   = work
 VSIM_COV_MERGE_DIR      = $(SIM_CFG_RESULTS)/$(CFG)/merged
 UVM_HOME                = $(QUESTASIM_HOME)/verilog_src/uvm-1.2/src
@@ -132,6 +134,8 @@ ifeq ($(call IS_YES,$(USE_ISS)),YES)
 	ifeq ($(ISS),IMPERAS)
 		VLOG_FILE_LIST += -f $(DV_UVMT_PATH)/imperas_iss.flist
 	endif
+endif
+ifeq ($(call IS_YES,$(SPIKE)),YES)
 	ifeq ($(ISS),SPIKE)
 		VSIM_FLAGS += -sv_lib $(SPIKE_CUSTOMEXT_LIB)
 		VSIM_FLAGS += -sv_lib $(SPIKE_RISCV_LIB)

@@ -32,6 +32,13 @@ COMPLIANCE_BRANCH ?= master
 # 2020-08-19
 COMPLIANCE_HASH   ?= c21a2e86afa3f7d4292a2dd26b759f3f29cde497
 
+# This Spike repo is only cloned when the DPI disassembler needs to be rebuilt.
+# Typically users can simply use the checked-in shared library.
+# Should you need to, the command is "make dpi_dasm".
+DPI_DASM_SPIKE_REPO   ?= https://github.com/riscv/riscv-isa-sim.git
+DPI_DASM_SPIKE_BRANCH ?= master
+DPI_DASM_SPIKE_HASH   ?= 8faa928819fb551325e76b463fc0c978e22f5be3
+
 # SVLIB
 SVLIB_REPO       ?= https://bitbucket.org/verilab/svlib/src/master/svlib
 SVLIB_BRANCH     ?= master

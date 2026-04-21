@@ -70,10 +70,10 @@ UVM_PLUSARGS ?=
 CV_SIMULATOR ?= unsim
 SIMULATOR    ?= $(CV_SIMULATOR)
 
-# Optionally exclude the OVPsim (not recommended)
-USE_ISS      ?= YES
-ISS          ?= IMPERAS
-COMPILE_SPIKE=$(USE_ISS)
+# Use SPIKE as the only ISS by default, it still needs to be activated through SPIKE=YES
+USE_ISS      ?= NO # USE_ISS needs to be NO, otherwise it will use IMPERAS for backward compatibility
+ISS          ?= $(if $(filter $(YES_VALS),$(SPIKE)),SPIKE)
+# COMPILE_SPIKE=$(SPIKE)
 
 # Common configuration variables
 CFG             ?= default

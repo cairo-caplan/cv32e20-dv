@@ -79,10 +79,9 @@ ifndef COMPLIANCE_REPO
 $(error Must define a COMPLIANCE_REPO to use the common makefile)
 endif
 
-# TODO: uncomment when Spike is integrated
-#ifndef DPI_DASM_SPIKE_REPO
-#$(warning Must define a DPI_DASM_SPIKE_REPO to use the common makefile)
-#endif
+ifndef DPI_DASM_SPIKE_REPO
+$(warning Must define a DPI_DASM_SPIKE_REPO to use the common makefile)
+endif
 
 ###############################################################################
 # Generate command to clone or symlink the core RTL
@@ -766,9 +765,9 @@ dpi_dasm: $(DPI_DASM_SPIKE_PKG)
 ###############################################################################
 # Build vendor/riscv-isa-sim into tools/
 
-export SPIKE_PATH  = $(CV32E20_DV)/vendor/riscv/riscv-isa-sim
-export SPIKE_INSTALL_DIR = $(CV32E20_DV)/tools/spike/
-SPIKE_LIBS_DIR = $(SPIKE_INSTALL_DIR)/lib/
+export SPIKE_PATH  = $(CV_VERIF_PKG)/vendor/riscv/riscv-isa-sim
+export SPIKE_INSTALL_DIR = $(CV_VERIF_PKG)/tools/spike
+SPIKE_LIBS_DIR = $(SPIKE_INSTALL_DIR)/lib
 SPIKE_FESVR_LIB = $(SPIKE_LIBS_DIR)/libfesvr
 SPIKE_RISCV_LIB = $(SPIKE_LIBS_DIR)/libriscv
 SPIKE_DISASM_LIB = $(SPIKE_LIBS_DIR)/libdisasm
@@ -777,17 +776,22 @@ SPIKE_YAML_LIB = $(SPIKE_LIBS_DIR)/libyaml-cpp
 
 NUM_JOBS ?= 8
 
-$(SPIKE_FESVR_LIB).so $(SPIKE_RISCV_LIB).so:
+# $(SPIKE_CUSTOMEXT_LIB).so
+# .PRECIOUS: $(SPIKE_FESVR_LIB).so $(SPIKE_RISCV_LIB).so $(SPIKE_CUSTOMEXT_LIB).so
+$(SPIKE_FESVR_LIB).so $(SPIKE_RISCV_LIB).so $(SPIKE_CUSTOMEXT_LIB).so: 
 	@echo "$(BANNER)"
 	@echo "Building SPIKE"
 	@echo "$(BANNER)"
+	@echo "SPIKE_FESVR_LIB : $(SPIKE_FESVR_LIB)"
+	@echo "SPIKE_RISCV_LIB : $(SPIKE_RISCV_LIB)"
+	@echo "SPIKE_CUSTOMEXT_LIB : $(SPIKE_CUSTOMEXT_LIB)"
 	mkdir -p $(SPIKE_PATH)/build;
 	[ ! -f $(SPIKE_PATH)/build/config.log ] && cd $(SPIKE_PATH)/build && ../configure --prefix=$(SPIKE_INSTALL_DIR) || true
 	make -C $(SPIKE_PATH)/build/ -j $(NUM_JOBS) yaml-cpp-static;
 	make -C $(SPIKE_PATH)/build/ -j $(NUM_JOBS) yaml-cpp;
 	make -C $(SPIKE_PATH)/build/ -j $(NUM_JOBS) install;
 
-spike_lib: $(SPIKE_FESVR_LIB).so $(SPIKE_RISCV_LIB).so
+spike_lib: core-v-verif $(SPIKE_FESVR_LIB).so $(SPIKE_RISCV_LIB).so $(SPIKE_CUSTOMEXT_LIB).so
 
 ###############################################################################
 # Build SVLIB DPI
