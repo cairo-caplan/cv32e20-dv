@@ -7,6 +7,10 @@ jobs:
   uvm-test:
     runs-on: self-hosted
     steps:
+      - name: Setup basic environment
+        run: |
+         source ~/.bashrc
+        
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -31,7 +35,7 @@ jobs:
         run: |
           set_questa_one_2025
 
-      - name: Run hwlloe-world UVM test without ISS/Spike
+      - name: Run hello-world UVM test without ISS/Spike
         run: |
           cd sim/uvmt/
           make clean_all
