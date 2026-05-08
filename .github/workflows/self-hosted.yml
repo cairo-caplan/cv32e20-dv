@@ -20,11 +20,11 @@ jobs:
           source venv_cv32e20-dv/bin/activate
           pip install --upgrade pip
           pip install -r bin/requirements.txt
-          source venv_cv32e20-dv/bin/activate
 
       - name: Install RISC-V Toolchain
         run: |
           export CV_SW_TOOLCHAIN=/opt/riscv
+          export CV_SW_PREFIX=riscv32-corev-elf-
           echo "Ensuring RISC-V toolchain is present at $CV_SW_TOOLCHAIN"
           if [ ! -f $CV_SW_TOOLCHAIN/bin/riscv32-corev-elf-gcc ]; then
             echo "Toolchain not found at $CV_SW_TOOLCHAIN/bin/riscv32-corev-elf-gcc. Please ensure it is installed on the host."
