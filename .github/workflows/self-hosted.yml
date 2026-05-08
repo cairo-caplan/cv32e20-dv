@@ -14,17 +14,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Python 3.11.15
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11.15'
-
-      - name: Show Python version
-        run: python3 --version
-
       - name: Set up Python virtual environment
         run: |
-          python3 -m venv venv_cv32e20-dv/
+          python3.12 -m venv venv_cv32e20-dv/
           source venv_cv32e20-dv/bin/activate
           pip install --upgrade pip
           pip install -r bin/requirements.txt
