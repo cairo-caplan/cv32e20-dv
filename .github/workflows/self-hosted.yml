@@ -7,7 +7,6 @@ defaults:
   run:
     shell: bash
 
-
 jobs:
   uvm-test:
     runs-on: self-hosted
@@ -39,5 +38,5 @@ jobs:
       - name: Run hello-world UVM test without ISS/Spike
         run: |
           cd sim/uvmt/
-          make clean_all
+          make clean_all SIMULATOR=vsim USE_ISS=NO
           make test TEST=hello-world SIMULATOR=vsim USE_ISS=NO
