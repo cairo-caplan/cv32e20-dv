@@ -9,3 +9,4 @@ pyvsc==0.6.3.1400856349
 setuptools==65.5.1
 sphinx_rtd_theme==1.0.0
 tabulate==0.8.9
+PyYAML==6.0.3
