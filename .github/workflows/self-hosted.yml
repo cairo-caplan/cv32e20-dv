@@ -3,14 +3,15 @@ name: Manual Questa self-hosted basic UVM Test
 on:
   workflow_dispatch:
 
+defaults:
+  run:
+    shell: bash
+
+
 jobs:
   uvm-test:
     runs-on: self-hosted
     steps:
-      - name: Setup basic environment
-        run: |
-         source ~/.bashrc
-        
       - name: Checkout code
         uses: actions/checkout@v4
 
