@@ -29,8 +29,8 @@ jobs:
           export CV_SW_PREFIX=riscv32-unknown-elf-
           export RISCV_PREFIX=$CV_SW_PREFIX
           echo "Ensuring RISC-V toolchain is present at $CV_SW_TOOLCHAIN"
-          if [ ! -f $CV_SW_TOOLCHAIN/bin/$(CV_SW_PREFIX)gcc ]; then
-            echo "Toolchain not found at $CV_SW_TOOLCHAIN/bin/$(CV_SW_PREFIX)gcc. Please ensure it is installed and properly setup"
+          if [ ! -f $CV_SW_TOOLCHAIN/bin/${CV_SW_PREFIX}gcc ]; then
+            echo "Toolchain not found at $CV_SW_TOOLCHAIN/bin/${CV_SW_PREFIX}gcc. Please ensure it is installed and properly setup"
             exit 1
           fi
           set_questa_one_2025
