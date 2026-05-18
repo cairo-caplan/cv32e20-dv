@@ -21,24 +21,18 @@ jobs:
           pip install --upgrade pip
           pip install -r bin/requirements.txt
 
-      - name: Install RISC-V Toolchain
-        run: |
-          export CV_SW_TOOLCHAIN=/opt/riscv
-          export CV_SW_PREFIX=riscv32-corev-elf-
-          export RISCV_PREFIX=$CV_SW_PREFIX
-          echo "Ensuring RISC-V toolchain is present at $CV_SW_TOOLCHAIN"
-          if [ ! -f $CV_SW_TOOLCHAIN/bin/riscv32-corev-elf-gcc ]; then
-            echo "Toolchain not found at $CV_SW_TOOLCHAIN/bin/riscv32-corev-elf-gcc. Please ensure it is installed on the host."
-            exit 1
-          fi
-
       - name: Run hello-world UVM test without ISS/Spike
         run: |
           source venv_cv32e20-dv/bin/activate
           cd sim/uvmt/
           export CV_SW_TOOLCHAIN=/opt/riscv
-          export CV_SW_PREFIX=riscv32-corev-elf-
-          export RISCV_PREFIX=$CV_SW_PREFIX
+          export CV_SW_PREFIX=riscv32-unknown-elf-
+          export RISCV_PREFIX=$
+          echo "Ensuring RISC-V toolchain is present at $CV_SW_TOOLCHAIN"
+          if [ ! -f $CV_SW_TOOLCHAIN/bin/$CV_SW_PREFIX-gcc ]; then
+            echo "Toolchain not found at $CV_SW_TOOLCHAIN/bin/$CV_SW_PREFIX-gcc. Please ensure it is installed and properly setup"
+            exit 1
+          fi
           set_questa_one_2025
           make clean_all SIMULATOR=vsim USE_ISS=NO
           make test TEST=hello-world SIMULATOR=vsim USE_ISS=NO
