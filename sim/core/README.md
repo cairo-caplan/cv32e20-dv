@@ -70,6 +70,31 @@ make certify   # run ELFs through Verilator DUT
 Results are written to:
 `simulation_results/certification/test_program/bsp/certification_summary.txt`
 
+### Prebuilt ELF flow (CI / fast iteration)
+
+`make gen` is slow: it clones ACT4 (~1.2 GB) and runs Sail-based test
+generation (~30 min, requires `uv` and `sail_riscv_sim`). The ELFs are
+deterministic in their inputs, so they can be produced once and reused.
+
+Targets:
+```
+make elfs-package      # tar+gzip ELFs to tests/act4/act4-elfs-cv32e20.tar.gz
+make certify-prebuilt  # extract that tarball and run certify (skips `gen`)
+```
+
+Maintainer flow (publish a new tarball):
+```
+make gen           # generate ELFs via ACT4 + Sail
+make elfs-package  # produce tests/act4/act4-elfs-cv32e20.tar.gz
+```
+
+CI flow (consume an existing tarball):
+```
+# tests/act4/act4-elfs-cv32e20.tar.gz must be present
+# (committed, downloaded as a release artifact, or restored from cache)
+make certify-prebuilt
+```
+
 <!--
 Running the testbench with Metrics [dsim](https://metrics.ca)
 ----------------------

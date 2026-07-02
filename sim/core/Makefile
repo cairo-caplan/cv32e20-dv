@@ -192,8 +192,8 @@ all: clean_all sanity
 ###############################################################################
 # Verilator
 
-# First test if the user wants to to wave dumping. Nobody ever remembers if it's
-# "WAVE" or "WAVES", so will work. We don't support VCD since the files are huge.
+# First test if the user wants to dump waves. Nobody ever remembers if it's
+# "WAVE" or "WAVES", so both will work. We don't support VCD since the files are huge.
 ifneq (${WAVE}, 0)
   WAVES = 1
 endif
@@ -263,7 +263,10 @@ clean-test-programs:
 	find $(CV32E20_DV)/tests/programs -name "*.objdump" -exec rm {} \;
 	find $(CV32E20_DV)/tests/programs -name "corev_*.S" -exec rm {} \;
 
-clean-all-targets: clean-dist clean-cloned clean-sim-results clean-test-programs verilator-clean
+clean-act4-unpacked:
+	rm -rf $(CV32E20_DV)/tests/act4/unpacked_tests
+
+clean-all-targets: clean-dist clean-cloned clean-sim-results clean-test-programs verilator-clean clean-act4-unpacked
 
 clean-dist:
 	rm -rf riscv-fesvr riscv-isa-sim
@@ -284,8 +287,8 @@ clean_all: clean-all-banner clean-all-targets
 certification_PROGRAM_PATH    = $(ACT4_PKG)/work/cv32e20/elfs
 certification_PROGRAM_RELPATH = ../../vendor_lib/riscv-arch-test/act4/work/cv32e20/elfs
 
-# Optional extension filter: narrows certify to a single extension.
-# Usage: make certify FILTER=Zicsr
+# Optional extension filter: narrows certify scan to a subdirectory.
+# Usage: make certify FILTER=rv32i/Zicsr  or  FILTER=priv/InterruptsSm
 FILTER ?=
 
 ###############################################################################
@@ -297,7 +300,7 @@ gen: $(ACT4_PKG)
 	@$(MAKE) -C $(ACT4_PKG) clean
 	@echo "* Generating ACT4.0 tests..."
 	@$(MAKE) -C $(ACT4_PKG) \
-		EXTENSIONS=I,M,C,Zca,Zicsr,Zifencei \
+		EXTENSIONS=I,M,C,Zca,Zicsr,Zifencei,InterruptsSm,MisalignZca,Misalign,ExceptionsSm,ExceptionsZc \
 		CONFIG_FILES=config/cores/cve2/cv32e20/test_config.yaml
 	@echo "* Tests generated in: $(certification_PROGRAM_PATH)"
 
@@ -312,7 +315,7 @@ certify: verilate
 	SUMMARY="$(VERI_LOG_DIR)/certification_summary.txt"; \
 	echo "RESULT  TEST" > "$$SUMMARY"; \
 	echo "------  ----" >> "$$SUMMARY"; \
-	ROOT="$(certification_PROGRAM_PATH)/rv32i$(if $(FILTER),/$(FILTER),)"; \
+	ROOT="$(certification_PROGRAM_PATH)$(if $(FILTER),/$(FILTER),)"; \
 	ELFS="$$(find -L "$$ROOT" \( -type f -o -type l \) -a \( -iname '*.elf' -o -iname '*.elf32' \) 2>/dev/null | sort)"; \
 	if [ -z "$$ELFS" ]; then \
 	  echo "No .elf files found under $$ROOT"; \
@@ -354,3 +357,35 @@ certify: verilate
 
 .PHONY: gen-certify
 gen-certify: gen certify
+
+###############################################################################
+# Prebuilt-ELF support (used by CI to skip the slow `gen` step).
+# Builds elfs and puts them in tarball gzip
+
+.PHONY: elfs-package
+elfs-package:
+	@if [ ! -d "$(certification_PROGRAM_PATH)/rv32i" ]; then \
+	    echo "Error: no ELFs at $(certification_PROGRAM_PATH). Run 'make gen' first."; \
+	    exit 1; \
+	fi
+	@mkdir -p $(CV32E20_DV)/tests/act4
+	@tar --sort=name --owner=0 --group=0 --numeric-owner \
+	    --mtime='UTC 2020-01-01' \
+	    --exclude='*.objdump' \
+	    -C $(certification_PROGRAM_PATH) \
+	    -czf $(CV32E20_DV)/tests/act4/act4-elfs-cv32e20.tar.gz rv32i
+	@echo "Tests:   $(CV32E20_DV)/tests/act4/act4-elfs-cv32e20.tar.gz"
+
+# Run certify against a prebuilt ELF tree (no `make gen` step).
+# CI uses this; local devs can keep using `make gen-certify`.
+.PHONY: certify-prebuilt
+certify-prebuilt:
+	@if [ ! -f "$(CV32E20_DV)/tests/act4/act4-elfs-cv32e20.tar.gz" ]; then \
+	    echo "Error: no prebuilt tarball at $(CV32E20_DV)/tests/act4/act4-elfs-cv32e20.tar.gz."; \
+	    echo "Run 'make elfs-package' or download a prebuilt tarball first."; \
+	    exit 2; \
+	fi
+	@mkdir -p $(CV32E20_DV)/tests/act4/unpacked_tests
+	@tar -xzf $(CV32E20_DV)/tests/act4/act4-elfs-cv32e20.tar.gz \
+	    -C $(CV32E20_DV)/tests/act4/unpacked_tests
+	@$(MAKE) certify certification_PROGRAM_PATH=$(CV32E20_DV)/tests/act4/unpacked_tests

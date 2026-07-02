@@ -11351,7 +11351,7 @@ fast_exit:
                   sw a5,0(a0)
 
                   li a0, test_ret_val
-                  lw a1, test_results /* report result */
+                  lw a1, test_passed /* report result */
                   sw a1,0(a0)
 
 test_done:
@@ -11372,6 +11372,9 @@ init_machine_mode:
 instr_end:
                   nop
 
+.section .data
+.align 6; .global tohost; tohost: .dword 0;
+.align 6; .global fromhost; fromhost: .dword 0;
 .section .user_stack,"aw",@progbits;
 .align 2
 user_stack_start:

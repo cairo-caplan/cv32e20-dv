@@ -22,6 +22,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h> /* Required for _exit() */
+
 volatile int glb_hart_status  = 0; // Written by main code only, read by debug code
 volatile int glb_debug_status = 0; // Written by debug code only, read by main code
 volatile int glb_ebreak_status = 0; // Written by ebreak code only, read by main code
@@ -51,8 +53,7 @@ volatile int glb_minstret_end = 0;
 // generic loop counter
 volatile int wait_cnt = 0;
 
-#define TEST_PASSED  *(volatile int *)0x20000000 = 1
-#define TEST_FAILED  *(volatile int *)0x20000000 = 2
+#include "cv32e20_dv.h"
 
 extern int __stack_start;
 typedef union {
@@ -66,9 +67,6 @@ typedef union {
   } fields;
   unsigned int bits;
 }  debug_req_control_t;
-#define DEBUG_REQ_CONTROL_REG *(volatile int *)0x15000008
-#define TIMER_REG_ADDR         ((volatile uint32_t *) 0x15000000)
-#define TIMER_VAL_ADDR         ((volatile uint32_t *) 0x15000004)
 typedef union {
   struct {
     unsigned int uie   : 1;  //     0 // Implemented if USER mode enabled
@@ -128,6 +126,9 @@ void check_ebreak_status(char tag[], int exp_value)
     printf("ERROR: check_ebreak_status(\"%s\", %d): Tag=\"%s\", glb_ebreak_status=%d, exp_value=%d \n\n",
            tag, exp_value, tag, glb_ebreak_status, exp_value);
     TEST_FAILED;
+  } else {
+    printf("INFO: successful check_ebreak_status(\"%s\", %d): Tag=\"%s\", glb_ebreak_status=%d, exp_value=%d \n\n",
+           tag, exp_value, tag, glb_ebreak_status, exp_value);
   }
 }
 void check_illegal_insn_status(char tag[], int exp_value)
@@ -286,14 +287,17 @@ int main(int argc, char *argv[])
 
     printf("        - Trigger TDATA1 read check\n");
     __asm__ volatile("csrr %0, 0x7a1"   : "=r"(temp)); // Trigger TDATA1
-    // TBC: does CV32E20 support matching in User Mode?
+    // CV32E20 is M-only (PVL-20), so the trigger u(ser) bit reads 0.
     //   31:28 type      = 2
     //      27 dmode     = 1
     //   15:12 action    = 1
     //      6  m(achine) = 1
-    //      3  u(ser)    = 1
-    if(temp !=  (2<<28 | 1<<27 | 1<<12 | 1<<6 | 1<<3)) {
-        printf(": ERROR!  Expected 0x2800_1048\n");
+    //      3  u(ser)    = 0
+    const unsigned int expected_tdata1 = (2<<28 | 1<<27 | 1<<12 | 1<<6);
+    if(temp !=  expected_tdata1) {
+        printf("ERROR!  Expected 0x%04x_%04x, got 0x%04x_%04x\n",
+                expected_tdata1 >> 16, expected_tdata1 & 0xff,
+                temp >> 16,            temp & 0xff);
         TEST_FAILED;
     }
 
@@ -538,18 +542,17 @@ int main(int argc, char *argv[])
     }
     check_debug_status(121, glb_hart_status);
 
-    printf("\n\nTEST DELIBERATELY ENDED PREMATURELY (several tests still outstanding...)\n\n");
-    _exit(0);
-
     printf("------------------------\n");
     printf("Test 18: Single stepping\n");
     glb_hart_status = 18;
+    // Single step code generates 2 illegal insn (csrr dcsr + dret).  Capture the
+    // cumulative count before stepping so the check is robust to prior tests'
+    // counts (the original used an unrelated scratch variable).
+    temp1 = glb_illegal_insn_status + 2;
     // Run single step code (in single_step.S)
     _single_step(0);
 
-    // Single step code should generate 2 illegal insn
-    temp1++;
-    check_illegal_insn_status("Test 18", temp1++);
+    check_illegal_insn_status("Test 18", temp1);
     check_debug_status(118, glb_hart_status);
 
     printf("Stepped %d times\n", glb_step_count);
@@ -626,5 +629,7 @@ int main(int argc, char *argv[])
     //return EXIT_FAILURE;
     printf("------------------------\n");
     printf("Finished \n");
+    // Reached the natural end with no check having failed -> signal pass.
+    TEST_PASSED;
     return EXIT_SUCCESS;
 }
