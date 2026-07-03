@@ -30,8 +30,6 @@ export CORE_V_VERIF   = $(abspath $(MAKE_PATH)/../..)
 export CV32E20_DV     = $(abspath $(MAKE_PATH)/../..)
 export CV_CORE       ?= cv32e20
 
-DPI_DASM_SPIKE_REPO  ?= https://github.com/riscv/riscv-isa-sim.git
-
 export CV_SW_MARCH   = rv32imc_zicsr_zifencei
 CV_SW_TOOLCHAIN      ?= /opt/riscv
 CV_SW_PREFIX         ?= " "

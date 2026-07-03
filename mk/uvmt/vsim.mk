@@ -33,7 +33,7 @@ VCOVER                  = vcover
 # Paths
 QUESTASIM_HOME         ?= $(abspath $(shell which $(VLIB))/../../)
 VWORK                   = work
-VSIM_COV_MERGE_DIR      = $(SIM_CFG_RESULTS)/$(CFG)/merged
+VSIM_COV_MERGE_DIR      = $(SIM_CFG_RESULTS)/merged
 UVM_HOME                = $(QUESTASIM_HOME)/verilog_src/uvm-1.2/src
 USES_DPI = 1
 
@@ -43,7 +43,7 @@ DPI_INCLUDE            ?= $(QUESTASIM_HOME)/include
 
 # Default flags
 VSIM_USER_FLAGS        ?=
-VOPT_COV               ?= +cover=setf+$(RTLSRC_VLOG_TB_TOP).
+VOPT_COV               ?= +cover=bcesxf+$(COV_INSTANCE).
 VSIM_COV               ?= -coverage
 VOPT_WAVES_ADV_DEBUG   ?= -designfile design.bin
 VSIM_WAVES_ADV_DEBUG   ?= -qwavedb=+signal+assertion+ignoretxntime+msgmode=both
@@ -58,7 +58,11 @@ endif
 
 ifeq ($(USES_DPI),1)
 	DPILIB_VLOG_OPT =
-	DPILIB_VSIM_OPT = -sv_lib $(QUESTASIM_HOME)/uvm-1.2/linux_x86_64/uvm_dpi
+# 	OS_ARCH := $(shell vsim -c -do "puts \"\$tcl_platform(os)_\$tcl_platform(machine)\"; quit -f")
+	OS = $(shell uname -s | tr A-Z a-z)
+ 	ARCH = $(shell uname -m)
+	DPILIB_VSIM_OPT = -sv_lib $(QUESTASIM_HOME)/uvm-1.2/$(OS)_$(ARCH)/uvm_dpi
+	DPILIB_TARGET = dpi_lib$(BITS)
 	DPILIB_TARGET = dpi_lib$(BITS)
 else
 	DPILIB_VLOG_OPT = +define+UVM_NO_DPI
@@ -136,12 +140,12 @@ ifeq ($(call IS_YES,$(USE_ISS)),YES)
 		VSIM_FLAGS += -sv_lib $(SPIKE_CUSTOMEXT_LIB)
 		VSIM_FLAGS += -sv_lib $(SPIKE_RISCV_LIB)
 		VSIM_FLAGS += -sv_lib $(SPIKE_DISASM_LIB)
-		LIBS = spike_lib
+		VSIM_FLAGS += -sv_lib $(SPIKE_FESVR_LIB)
+		VSIM_FLAGS += +SPIKE
 	endif
 endif
 
 ifeq ($(call IS_YES,$(COMPILE_SPIKE)),YES)
-	VSIM_FLAGS += -sv_lib $(SPIKE_FESVR_LIB)
 	LIBS = spike_lib
 endif
 
@@ -180,7 +184,11 @@ VSIM_SCRIPT_DIR   = $(abspath $(MAKE_PATH)/../tools/vsim)
 VSIM_UVM_ARGS     = +incdir+$(UVM_HOME)/src $(UVM_HOME)/src/uvm_pkg.sv
 
 ifeq ($(call IS_YES,$(USE_ISS)),YES)
-    VSIM_FLAGS += -sv_lib $(basename $(OVP_MODEL_DPI))
+	ifeq ($(ISS),IMPERAS)
+		VSIM_FLAGS += -sv_lib $(basename $(OVP_MODEL_DPI))
+	else
+		VSIM_FLAGS += +DISABLE_OVPSIM
+	endif
 	VSIM_FLAGS += +USE_ISS
 else
 	VSIM_FLAGS += +DISABLE_OVPSIM
@@ -242,32 +250,29 @@ VSIM_FLAGS += -do $(VSIM_SCRIPT_DIR)/vsim.tcl
 # Coverage command
 COV_FLAGS =
 COV_REPORT = cov_report
+COV_INST_ARG = $(if $(COV_INSTANCE),-instance=$(COV_INSTANCE).,)
 COV_MERGE_TARGET =
-COV_MERGE_FIND = find $(SIM_CFG_RESULTS) -type f -name "*.ucdb" | grep -v merged.ucdb
+COV_MERGE_FIND = find $(abspath $(SIM_CFG_RESULTS)) -type f -name "*.ucdb" | grep -v merged.ucdb
 COV_MERGE_FLAGS=merge -64 -out merged.ucdb -inputs ucdb.list
 
 ifeq ($(call IS_YES,$(MERGE)),YES)
 	COV_DIR=$(VSIM_COV_MERGE_DIR)
 	COV_MERGE_TARGET=cov_merge
+	ifeq ($(call IS_YES,$(GUI)),YES)
+		# Merged coverage GUI
+		COV_FLAGS=-viewcov $(VSIM_COV_MERGE_DIR)/merged.ucdb
+	else
+		# Merged coverage report
+		COV_FLAGS=-c -viewcov $(VSIM_COV_MERGE_DIR)/merged.ucdb -do "file delete -force $(COV_REPORT); coverage report -html -details -precision 2 -annotate $(COV_INST_ARG) -output $(COV_REPORT); exit -f"
+	endif
 else
 	COV_DIR=$(SIM_RUN_RESULTS)
-
-	ifeq ($(call IS_YES,$(MERGE)),YES)
-		ifeq ($(call IS_YES,$(GUI)),YES)
-            # Merged coverage GUI
-			COV_FLAGS=-viewcov $(VSIM_COV_MERGE_DIR)/merged.ucdb
-		else
-            # Merged coverage report
-			COV_FLAGS=-c -viewcov $(VSIM_COV_MERGE_DIR)/merged.ucdb -do "file delete -force $(COV_REPORT); coverage report -html -details -precision 2 -annotate -output $(COV_REPORT); exit -f"
-		endif
+	ifeq ($(call IS_YES,$(GUI)),YES)
+		# Test coverage GUI
+		COV_FLAGS=-viewcov $(TEST).ucdb
 	else
-		ifeq ($(call IS_YES,$(GUI)),YES)
-            # Test coverage GUI
-			COV_FLAGS=-viewcov $(TEST).ucdb
-		else
-            # Test coverage report
-			COV_FLAGS=-c -viewcov $(TEST).ucdb -do "file delete -force $(COV_REPORT); coverage report -html -details -precision 2 -annotate -output $(COV_REPORT); exit -f"
-		endif
+		# Test coverage report
+		COV_FLAGS=-c -viewcov $(TEST).ucdb -do "file delete -force $(COV_REPORT); coverage report -html -details -precision 2 -annotate $(COV_INST_ARG) -output $(COV_REPORT); exit -f"
 	endif
 endif
 
@@ -565,8 +570,7 @@ waves:
 # Invoke coverage
 cov_merge:
 	$(MKDIR_P) $(VSIM_COV_MERGE_DIR)
-	cd $(VSIM_COV_MERGE_DIR) && \
-		$(COV_MERGE_FIND) > $(VSIM_COV_MERGE_DIR)/ucdb.list
+	$(COV_MERGE_FIND) > $(VSIM_COV_MERGE_DIR)/ucdb.list
 	cd $(VSIM_COV_MERGE_DIR) && \
 		$(VCOVER) \
 			$(COV_MERGE_FLAGS)
@@ -583,6 +587,6 @@ clean:
 
 # All generated files plus the clone of the RTL
 # TODO: fix the 'clean_embench' targets
-clean_all: clean clean_rtl clean_riscv-dv clean_test_programs clean_bsp clean_compliance clean_dpi_dasm_spike clean_svlib clean_rvvi_stub clean_core_v_verif
+clean_all: clean clean_rtl clean_riscv-dv clean_test_programs clean_bsp clean_compliance clean_dpi_dasm_spike clean_svlib clean_rvvi_stub clean_core_v_verif clean_spike
 	rm -rf $(CV_CORE_PKG)
 
