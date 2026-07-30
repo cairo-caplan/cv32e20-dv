@@ -24,8 +24,25 @@ jobs:
           chmod +x bin/run_uvm_tests.py
           ./bin/run_uvm_tests.py
 
+      - name: Create Vendor-Neutral Coverage Directory
+        run: |
+          mkdir -p coverage_report_vendor_neutral
+          cp coverage_report/lcov.info coverage_report_vendor_neutral/
+          cp coverage_report/cobertura.xml coverage_report_vendor_neutral/
+          cp coverage_report/summary.json coverage_report_vendor_neutral/
+          cp coverage_report/index.html coverage_report_vendor_neutral/
+          cp coverage_report/style.css coverage_report_vendor_neutral/
+          cp coverage_report/trl5_metrics.json coverage_report_vendor_neutral/ 2>/dev/null || true
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./coverage_report
+          publish_dir: ./coverage_report_vendor_neutral
+          destination_dir: coverage_report
+          enablement: true
+          exclude_assets: ''
+          force_orphan: true
+          keep_files: false
+          allow_empty_commit: false
+          commit_message: 'Update coverage report [skip ci]'

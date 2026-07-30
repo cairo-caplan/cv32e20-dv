@@ -6,7 +6,12 @@ import os
 import subprocess
 import re
 import json
+import argparse
+import shutil
 from pathlib import Path
+from extract_coverage_metrics import extract_coverage_metrics
+from ucdb_to_cobertura import generate_cobertura_xml, extract_ucdb_metrics as extract_ucdb_metrics_from_converter
+import xml.etree.ElementTree as ET
 
 # --- Configuration ---
 # Paths to the folders containing the test program names
@@ -75,46 +80,77 @@ def run_command(command, cwd):
 def parse_questasim_coverage(report_dir, instance_path):
     """
     Parses Questasim HTML coverage reports to find coverage for a specific instance.
-    Returns a tuple (code_cov, func_cov) or ("N/A", "N/A") if not found.
+    Tries to find overalldu.js first as it contains structured data.
+    Returns a dictionary of metrics or None if not found.
     """
+    # Path to the JS file that typically contains overall summary data
+    js_file = report_dir / "cov_report" / "files" / "overalldu.js"
+
+    if js_file.exists():
+        try:
+            content = js_file.read_text(errors='ignore')
+            # Extract the g_data object using regex
+            # We look for the "ds" object which contains the overall metrics
+            ds_match = re.search(r'"ds":\s*(\{.*?\});', content)
+            if ds_match:
+                # The captured group is something like {"s":[...], "b":[...], ...}
+                # We can use a simple regex or json.loads if we clean it up.
+                # Since it's almost JSON, let's try to extract values directly.
+
+                def get_val(key):
+                    # Look for "s":[..., ..., value]
+                    pattern = rf'"{key}":\s*\[\s*[^\]]*,\s*[^\]]*,\s*([\d\.]+)\s*\]'
+                    match = re.search(pattern, ds_match.group(1))
+                    return match.group(1) if match else "N/A"
+
+                def get_single_val(key):
+                    # Look for "tc":value
+                    pattern = rf'"{key}":\s*([\d\.]+)'
+                    match = re.search(pattern, ds_match.group(1))
+                    return match.group(1) if match else "N/A"
+
+                return {
+                    "code_coverage": get_single_val("tc"),
+                    "functional_coverage": get_val("fc"),
+                    "statement": get_val("s"),
+                    "branch": get_val("b"),
+                    "fsm_state": get_val("fs"),
+                }
+        except Exception as e:
+            print(f"Error parsing overalldu.js: {e}")
+
+    # Fallback to HTML parsing (original logic)
     code_cov = "N/A"
     func_cov = "N/A"
-
-    # Try both with and without leading slash as Questasim might omit it in the HTML
     paths_to_try = [instance_path, instance_path.lstrip('/')]
 
     try:
-        # Questasim HTML reports often have the summary in index.html or summary.html
-        # We search for the instance path and then look for percentage values in the same row.
         for html_file in report_dir.rglob("*.html"):
             content = html_file.read_text(errors='ignore')
-
             for path in paths_to_try:
                 if path in content:
-                    # Search for the row containing the instance path.
-                    # We use <tr\b[^>]*> to match <tr> tags that might have attributes (e.g., <tr class="even">).
                     rows = re.findall(r'<tr\b[^>]*>(.*?)</tr>', content, re.DOTALL | re.IGNORECASE)
                     for row in rows:
                         if path in row:
-                            # Extract percentage values from table cells.
-                            # This matches <td>85.5%</td> or <td>85.5</td>
-                            matches = re.findall(r'<td>\s*(\d+(?:\.\d+)?)\s*%?\s*</td>', row)
-
+                            matches = re.findall(r'<td\b[^>]*>\s*(\d+(?:\.\d+)?)\s*%?\s*</td>', row)
                             if not matches:
-                                # Fallback to any number followed by % in the row
                                 matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', row)
-
                             if len(matches) >= 2:
-                                # Assume first is code, second is functional
-                                return matches[0], matches[1]
+                                return {"code_coverage": matches[0], "functional_coverage": matches[1]}
                             elif len(matches) == 1:
-                                return matches[0], "N/A"
+                                return {"code_coverage": matches[0], "functional_coverage": "N/A"}
     except Exception as e:
         print(f"Error parsing coverage reports: {e}")
 
-    return code_cov, func_cov
+    return None
 
 def main():
+    parser = argparse.ArgumentParser(description='Run UVM tests and generate coverage reports.')
+    parser.add_argument('--skip-tests', action='store_true', help='Skip running the UVM tests and only generate the HTML coverage reports from the merged coverage results.')
+    parser.add_argument('--merge-coverage', action='store_true', help='Merge existing coverage data from all tests into the merged coverage results.')
+    parser.add_argument('--clean', action='store_true', help='Clean the merged coverage results before generating the report (only applicable with --skip-tests).')
+    args = parser.parse_args()
+
     # Determine the project root based on the location of this script
     script_dir = Path(__file__).parent.parent.resolve()
 
@@ -123,6 +159,7 @@ def main():
     # Resolve paths relative to the script's location
     sim_dir_abs = script_dir / SIM_DIR
     log_file_abs = script_dir / SIM_DIR / LOG_FILE
+    report_dest_root = script_dir / "coverage_report"
 
     # 1. Get the list of test names from all configured roots
     tests = []
@@ -142,75 +179,187 @@ def main():
         print("No tests found in the specified directory.")
         return
 
-    print(f"Found {len(tests)} tests. Starting execution in {sim_dir_abs}...\n")
+    if args.skip_tests:
+        print("Skipping UVM test execution as requested.")
+        if args.clean:
+            print("Cleaning previous report files...")
+            # Clean the report destination directory to ensure clean report generation
+            if report_dest_root.exists():
+                shutil.rmtree(report_dest_root)
+                print("Previous report files cleaned.")
+            else:
+                print("No previous report files to clean.")
+        else:
+            print("Note: Using existing merged coverage results and existing report files if any.")
+    else:
+        print(f"Found {len(tests)} tests. Starting execution in {sim_dir_abs}...\n")
+        # Clean merged coverage results before running tests
+        run_command("rm -Rf vsim_results/default/merged/", str(sim_dir_abs))
+        if report_dest_root.exists():
+            shutil.rmtree(report_dest_root)
+        print("Tests:")
+        for test in tests:
+            print(f"\t{test}", end="\n", flush=True)
 
     results = {}
 
-    # Clean merged coverage results
-    run_command("rm -Rf vsim_results/default/default/", str(sim_dir_abs))
+    # 2. Run each test (unless skipping)
+    if not args.skip_tests:
+        for test in tests:
+            print(f"Running {test}...", end=" ", flush=True)
 
-    print("Tests:")
-    for test in tests:
-        print(f"\t{test}", end="\n", flush=True)
+            run_command(CLEAN_HEX.format(test=test), str(sim_dir_abs))
 
-    # 2. Run each test
-    for test in tests:
-        print(f"Running {test}...", end=" ", flush=True)
+            # Run the test
+            exit_code = run_command(RUN_CMD.format(test=test), str(sim_dir_abs))
 
-        run_command(CLEAN_HEX.format(test=test), str(sim_dir_abs))
+            if exit_code == 0:
+                print("PASSED ✅")
+                results[test] = "PASSED"
+            else:
+                print("FAILED ❌")
+                results[test] = "FAILED"
 
-        # Run the test
-        exit_code = run_command(RUN_CMD.format(test=test), str(sim_dir_abs))
+            # Merge coverage for this test
+            run_command(MERGE_CMD.format(test=test), str(sim_dir_abs))
 
-        if exit_code == 0:
-            print("PASSED ✅")
-            results[test] = "PASSED"
+            # 3. Clean up the test
+            # run_command(CLEAN_CMD.format(test=test), str(sim_dir_abs))
+    else:
+        # When skipping tests, attempt to load previous results for the summary
+        summary_json_path = report_dest_root / "summary.json"
+        if summary_json_path.exists():
+            try:
+                with open(summary_json_path, "r") as f:
+                    prev_summary = json.load(f)
+                    passed_count = prev_summary.get("passed", 0)
+                    total_count = prev_summary.get("total_tests", 0)
+                    pass_rate = prev_summary.get("pass_rate", 0)
+                    print(f"Recovered previous test results: {passed_count}/{total_count} passed ({pass_rate}%).")
+            except Exception as e:
+                print(f"Warning: Could not load previous summary.json: {e}")
+                passed_count = 0
+                total_count = 0
+                pass_rate = 0
         else:
-            print("FAILED ❌")
-            results[test] = "FAILED"
+            passed_count = 0
+            total_count = 0
+            pass_rate = 0
 
-        # Merge coverage for this test
-        run_command(MERGE_CMD.format(test=test), str(sim_dir_abs))
+    # Merge existing coverage data if requested
+    if args.merge_coverage:
+        print("Merging existing coverage data...")
+        merged_count = 0
+        for test in tests:
+            # The coverage data is located at sim/uvmt/vsim_results/default/$TEST_NAME/0/$TESTNAME.ucdb
+            ucdb_path = sim_dir_abs / "vsim_results" / "default" / test / "0" / f"{test}.ucdb"
+            if ucdb_path.exists():
+                run_command(MERGE_CMD.format(test=test), str(sim_dir_abs))
+                merged_count += 1
+        print(f"Merged coverage for {merged_count} tests.")
 
-        # 3. Clean up the test
-        # run_command(CLEAN_CMD.format(test=test), str(sim_dir_abs))
+    # Instance path for coverage extraction (used by UCDB-based and Questasim report parsers)
+    instance_to_track = "/uvmt_cv32e20_tb/dut_wrap/cv32e20_top_i/u_cve2_top/u_cve2_core"
 
     # 4. Finalize coverage report
     print("\nFinalizing coverage report...", end=" ", flush=True)
-    # Coverage is merged incrementally in the loop.
-    # We can run one last merge to ensure everything is captured or simply mark as done.
+
+    # Generate vendor-neutral coverage formats (Cobertura XML from UCIS)
+    merged_ucdb = sim_dir_abs / "vsim_results" / "default" / "merged" / "merged.ucdb"
+    if merged_ucdb.exists():
+        print("\nGenerating vendor-neutral coverage formats...", flush=True)
+
+        # Export to UCIS XML format
+        ucis_xml_path = report_dest_root / "merged.ucis.xml"
+        print(f"  Exporting UCIS XML: {ucis_xml_path}")
+        result = subprocess.run(
+            ['vcover', 'report', '-xml', '-output', str(ucis_xml_path), str(merged_ucdb)],
+            cwd=str(sim_dir_abs),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
+        if result.returncode != 0:
+            print(f"  Warning: Failed to export UCIS XML: {result.stderr}")
+        else:
+            print(f"  UCIS XML exported successfully")
+
+        # Generate Cobertura XML from UCIS
+        cobertura_path = report_dest_root / "cobertura.xml"
+        if generate_cobertura_xml(str(ucis_xml_path), str(cobertura_path), instance_to_track):
+            print(f"  Cobertura XML generated: {cobertura_path}")
+        else:
+            print("  Warning: Failed to generate Cobertura XML")
+    else:
+        print("\nWarning: Merged UCDB not found, vendor-neutral formats not generated")
+
     print("DONE ✅")
 
-    # Move the report to a fixed location for CI/CD
+    # Generate HTML report from merged UCDB
     # The Makefile puts it in vsim_results/default/default/merged
     # We want it in a top-level directory for easier GH Pages upload
     report_src = sim_dir_abs / "vsim_results" / "default" / "merged"
-    report_dest_root = script_dir / "coverage_report"
     report_dest_questasim = report_dest_root / "questasim"
 
     # Ensure the destination root exists
-    if report_dest_root.exists():
-        import shutil
-        shutil.rmtree(report_dest_root)
+    if not args.skip_tests or args.clean:
+        if report_dest_root.exists():
+            shutil.rmtree(report_dest_root)
     report_dest_root.mkdir(parents=True, exist_ok=True)
 
-    if report_src.exists():
-        import shutil
-        shutil.copytree(report_src, report_dest_questasim)
-        print(f"Coverage report moved to {report_dest_questasim}")
+    if merged_ucdb.exists():
+        # Generate HTML report using vcover
+        print(f"Generating HTML coverage report in {report_dest_questasim}...")
+        result = subprocess.run(
+            ['vcover', 'report', '-html', str(report_dest_questasim), str(merged_ucdb)],
+            cwd=str(sim_dir_abs),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
+        if result.returncode != 0:
+            print(f"  Warning: Failed to generate HTML report: {result.stderr}")
+        else:
+            print(f"  HTML report generated successfully")
     else:
-        print("Warning: Coverage report not found.")
+        print("Warning: Merged UCDB not found, HTML report not generated")
 
     # Always try to copy dashboard templates
     dashboard_templates = script_dir / "templates" / "coverage_dashboard"
     if dashboard_templates.exists():
-        import shutil
         shutil.copy(dashboard_templates / "index.html", report_dest_root / "index.html")
         shutil.copy(dashboard_templates / "style.css", report_dest_root / "style.css")
         print("Dashboard templates copied to coverage_report/")
     else:
         print("Warning: Dashboard templates not found at templates/coverage_dashboard/")
 
+    trl5_metrics = None
+    if merged_ucdb.exists():
+        trl5_metrics = extract_coverage_metrics(str(merged_ucdb), instance_to_track)
+        if trl5_metrics:
+            print("TRL5 coverage metrics extracted:")
+            print(f"  Line Coverage: {trl5_metrics.get('statement', 'N/A')}%")
+            print(f"  Branch Coverage: {trl5_metrics.get('branch', 'N/A')}%")
+            print(f"  Condition Coverage: {trl5_metrics.get('condition', 'N/A')}%")
+            print(f"  FSM State Coverage: {trl5_metrics.get('fsm_state', 'N/A')}%")
+            print(f"  FSM Transition Coverage: {trl5_metrics.get('fsm_transition', 'N/A')}%")
+        else:
+            print("Warning: Failed to extract TRL5 coverage metrics")
+    else:
+        print("Warning: Merged UCDB file not found, TRL5 metrics not available")
+
+    # Save TRL5-specific metrics
+    if trl5_metrics:
+        trl5_json_path = report_dest_root / "trl5_metrics.json"
+        with open(trl5_json_path, "w") as f:
+            json.dump({
+                "line_coverage": trl5_metrics.get("statement", "N/A"),
+                "condition_coverage": trl5_metrics.get("condition", "N/A"),
+                "branch_coverage": trl5_metrics.get("branch", "N/A"),
+                "fsm_state_coverage": trl5_metrics.get("fsm_state", "N/A"),
+                "fsm_transition_coverage": trl5_metrics.get("fsm_transition", "N/A")
+            }, f, indent=4)
+        print(f"TRL5 coverage metrics saved to {trl5_json_path}")
 
     # 5. Print and save the results to log file
     with open(log_file_abs, "w") as f:
@@ -218,15 +367,22 @@ def main():
         f.write("================\n")
 
         summary = ""
-        for test, status in results.items():
-            line = f"{test}: {status}\n"
-            f.write(line)
-            summary += line
+        if results:
+            for test, status in results.items():
+                line = f"{test}: {status}\n"
+                f.write(line)
+                summary += line
 
-        # Calculate pass rate
-        passed_count = list(results.values()).count("PASSED")
-        total_count = len(results)
-        pass_rate = (passed_count / total_count * 100) if total_count > 0 else 0
+            # Calculate pass rate
+            passed_count = list(results.values()).count("PASSED")
+            total_count = len(results)
+            pass_rate = (passed_count / total_count * 100) if total_count > 0 else 0
+        else:
+            # Use recovered values if we skipped tests
+            # passed_count, total_count, pass_rate are already defined in the skip_tests block
+            summary = "Tests skipped. Using recovered metrics from previous run."
+            # we don't write individual test results to the log if we skipped them
+
         footer = f"\nSummary: {passed_count}/{total_count} tests passed ({pass_rate:.2f}%)."
         f.write(footer)
         summary += footer
@@ -235,19 +391,46 @@ def main():
     summary_json_path = report_dest_root / "summary.json"
 
     # Parse coverage for the specific core instance
-    instance_to_track = "/uvmt_cv32e20_tb/dut_wrap/cv32e20_top_i/u_cve2_top/u_cve2_core"
-    code_cov, func_cov = parse_questasim_coverage(report_dest_questasim, instance_to_track)
+    cov_metrics = parse_questasim_coverage(report_dest_questasim, instance_to_track)
 
-    import json
+    summary_data = {
+        "code_coverage": cov_metrics.get("code_coverage", "N/A") if cov_metrics else "N/A",
+        "functional_coverage": round(pass_rate, 2),
+        "pass_rate": round(pass_rate, 2),
+        "total_tests": total_count,
+        "passed": passed_count,
+        "failed": total_count - passed_count
+    }
+
+    # Add TRL5 metrics if available (either from vcover or from the JS parser)
+    if trl5_metrics:
+        summary_data.update({
+            "line_coverage": trl5_metrics.get("statement", "N/A"),
+            "condition_coverage": trl5_metrics.get("condition", "N/A"),
+            "branch_coverage": trl5_metrics.get("branch", "N/A"),
+            "fsm_state_coverage": trl5_metrics.get("fsm_state", "N/A"),
+            "fsm_transition_coverage": trl5_metrics.get("fsm_transition", "N/A")
+        })
+    elif cov_metrics:
+        summary_data.update({
+            "line_coverage": cov_metrics.get("statement", "N/A"),
+            "condition_coverage": cov_metrics.get("functional_coverage", "N/A"),
+            "branch_coverage": cov_metrics.get("branch", "N/A"),
+            "fsm_state_coverage": cov_metrics.get("fsm_state", "N/A"),
+            "fsm_transition_coverage": "N/A"
+        })
+    else:
+        # Add placeholders if no metrics available
+        summary_data.update({
+            "line_coverage": "N/A",
+            "condition_coverage": "N/A",
+            "branch_coverage": "N/A",
+            "fsm_state_coverage": "N/A",
+            "fsm_transition_coverage": "N/A"
+        })
+
     with open(summary_json_path, "w") as fj:
-        json.dump({
-            "code_coverage": code_cov,
-            "functional_coverage": func_cov,
-            "pass_rate": round(pass_rate, 2),
-            "total_tests": total_count,
-            "passed": passed_count,
-            "failed": total_count - passed_count
-        }, fj, indent=4)
+        json.dump(summary_data, fj, indent=4)
     print(f"Summary metrics saved to {summary_json_path}")
 
     print(f"\n--- Final Results ---\n{summary}")

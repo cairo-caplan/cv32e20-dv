@@ -55,3 +55,5 @@ vcs.cmd
 venv*
 /dist/
 !.github/workflows/
+A*.md
+coverage_report_bkp/

@@ -37,13 +37,20 @@ VSIM_COV_MERGE_DIR      = $(SIM_CFG_RESULTS)/merged
 UVM_HOME                = $(QUESTASIM_HOME)/verilog_src/uvm-1.2/src
 USES_DPI = 1
 
+# Criteria for OpenHW TRL5: 
+# https://docs.google.com/presentation/d/1B_kt_JEcLfm1e7IEwnnPGHXxc1ww2tLA/edit?slide=id.g28866f3cbf4_0_54#slide=id.g28866f3cbf4_0_54
+# 100% Line, Condition, FSM state and Branch coverage. Signed-off waivers for any uncovered lines or conditions.
+#
+# b=branch coverage; c=condition coverage; e=expression coverage; s=statement coverage==line; t=toggle; f=Finite State Machine coverage
+COV_TYPES              ?= bcsf
+
 # Special var to point to tool and installation dependent path of DPI headers.
 # Used to recompile dpi_dasm_spike if needed (by default, not needed).
 DPI_INCLUDE            ?= $(QUESTASIM_HOME)/include
 
 # Default flags
 VSIM_USER_FLAGS        ?=
-VOPT_COV               ?= +cover=bcesxf+$(COV_INSTANCE).
+VOPT_COV               ?= +cover=$(COV_TYPES)+$(COV_INSTANCE).
 VSIM_COV               ?= -coverage
 VOPT_WAVES_ADV_DEBUG   ?= -designfile design.bin
 VSIM_WAVES_ADV_DEBUG   ?= -qwavedb=+signal+assertion+ignoretxntime+msgmode=both
@@ -263,7 +270,7 @@ ifeq ($(call IS_YES,$(MERGE)),YES)
 		COV_FLAGS=-viewcov $(VSIM_COV_MERGE_DIR)/merged.ucdb
 	else
 		# Merged coverage report
-		COV_FLAGS=-c -viewcov $(VSIM_COV_MERGE_DIR)/merged.ucdb -do "file delete -force $(COV_REPORT); coverage report -html -details -precision 2 -annotate $(COV_INST_ARG) -output $(COV_REPORT); exit -f"
+		COV_FLAGS=-c -viewcov $(VSIM_COV_MERGE_DIR)/merged.ucdb -do "file delete -force $(COV_REPORT); coverage report -html -details -precision 2 -annotate $(COV_INST_ARG) -code $(COV_TYPES) -output $(COV_REPORT); exit -f"
 	endif
 else
 	COV_DIR=$(SIM_RUN_RESULTS)
@@ -272,7 +279,7 @@ else
 		COV_FLAGS=-viewcov $(TEST).ucdb
 	else
 		# Test coverage report
-		COV_FLAGS=-c -viewcov $(TEST).ucdb -do "file delete -force $(COV_REPORT); coverage report -html -details -precision 2 -annotate $(COV_INST_ARG) -output $(COV_REPORT); exit -f"
+		COV_FLAGS=-c -viewcov $(TEST).ucdb -do "file delete -force $(COV_REPORT); coverage report -html -details -precision 2 -annotate $(COV_INST_ARG) -code $(bcesf) -output $(COV_REPORT); exit -f"
 	endif
 endif
 
@@ -382,7 +389,7 @@ vopt_corev-dv:
 			-o $(CV_CORE_LC)_instr_gen_tb_top_vopt \
 			-l vopt.log
 
-gen_corev-dv: $(LIBS)
+gen_corev-dv: $(LIBS) rvvi_stub $(SVLIB_PKG)
 	mkdir -p $(SIM_COREVDV_RESULTS)/$(TEST)
 	for (( idx=${GEN_START_INDEX}; idx < $$((${GEN_START_INDEX} + ${GEN_NUM_TESTS})); idx++ )); do \
 		mkdir -p $(SIM_TEST_RESULTS)/$$idx/test_program; \
@@ -408,7 +415,7 @@ gen_corev-dv: $(LIBS)
 		cp ${SIM_COREVDV_RESULTS}/${TEST}/${TEST}_$$idx.S ${SIM_TEST_RESULTS}/$$idx/test_program; \
 	done
 
-comp_corev-dv: $(RISCVDV_PKG) $(CV_CORE_PKG) vlog_corev-dv vopt_corev-dv
+comp_corev-dv: $(RISCVDV_PKG) $(CV_CORE_PKG) $(CV_VERIF_PKG) vlog_corev-dv vopt_corev-dv
 
 corev-dv: clean_riscv-dv clone_riscv-dv comp_corev-dv
 
@@ -578,6 +585,14 @@ cov: $(COV_MERGE_TARGET)
 	cd $(COV_DIR) && \
 		$(VSIM) \
 			$(COV_FLAGS)
+
+# Target to extract TRL5 coverage metrics
+trl5_coverage_metrics:
+	$(MKDIR_P) $(VSIM_COV_MERGE_DIR)
+	cd $(VSIM_COV_MERGE_DIR) && \
+		COV_INSTANCE="$(COV_INSTANCE)" $(VCOVER) \
+		load merged.ucdb -test dummy -run $(VSIM_SCRIPT_DIR)/coverage_extract.tcl \
+		> $(VSIM_COV_MERGE_DIR)/trl5_metrics.txt
 
 ###############################################################################
 # Clean up your mess!
