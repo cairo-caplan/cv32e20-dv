@@ -32,6 +32,7 @@ class uvme_cv32e20_cfg_c extends uvma_core_cntrl_cfg_c;
    // Random knobs
    rand bit                   zero_stall_sim; // When randomized to 1, clears is_stall_sim in step and compare
    bit                        max_data_zero_instr_stall; // state variable set by plusarg +max_data_zero_instr_stall
+   bit                        max_both_stall; // state variable set by plusarg +max_both_stall
 
    rand longint unsigned fetch_initial_delay;
 
@@ -132,7 +133,7 @@ constraint cve2_riscv_cons {
       pmp_supported          == 0;
       debug_supported        == 1;
 
-      unaligned_access_supported     == 0;
+      unaligned_access_supported     == 1;
       unaligned_access_amo_supported == 0;
 
       bitmanip_version        == BITMANIP_VERSION_1P00;
@@ -171,6 +172,26 @@ constraint cve2_riscv_cons {
       if (max_data_zero_instr_stall) {
          obi_memory_instr_cfg.drv_slv_gnt_mode    == UVMA_OBI_MEMORY_DRV_SLV_GNT_MODE_CONSTANT;
          obi_memory_instr_cfg.drv_slv_rvalid_mode == UVMA_OBI_MEMORY_DRV_SLV_RVALID_MODE_CONSTANT;
+
+         obi_memory_data_cfg.drv_slv_gnt_mode    == UVMA_OBI_MEMORY_DRV_SLV_GNT_MODE_RANDOM_LATENCY;
+         obi_memory_data_cfg.drv_slv_gnt_random_latency_min == 0;
+         obi_memory_data_cfg.drv_slv_gnt_random_latency_max == 8;
+
+         obi_memory_data_cfg.drv_slv_rvalid_mode == UVMA_OBI_MEMORY_DRV_SLV_RVALID_MODE_RANDOM_LATENCY;
+         obi_memory_data_cfg.drv_slv_rvalid_random_latency_min == 0;
+         obi_memory_data_cfg.drv_slv_rvalid_random_latency_max == 8;
+      }
+   }
+
+   constraint max_both_stall_sim_cons {
+      if (max_both_stall) {
+         obi_memory_instr_cfg.drv_slv_gnt_mode    == UVMA_OBI_MEMORY_DRV_SLV_GNT_MODE_RANDOM_LATENCY;
+         obi_memory_instr_cfg.drv_slv_gnt_random_latency_min == 0;
+         obi_memory_instr_cfg.drv_slv_gnt_random_latency_max == 8;
+
+         obi_memory_instr_cfg.drv_slv_rvalid_mode == UVMA_OBI_MEMORY_DRV_SLV_RVALID_MODE_RANDOM_LATENCY;
+         obi_memory_instr_cfg.drv_slv_rvalid_random_latency_min == 0;
+         obi_memory_instr_cfg.drv_slv_rvalid_random_latency_max == 8;
 
          obi_memory_data_cfg.drv_slv_gnt_mode    == UVMA_OBI_MEMORY_DRV_SLV_GNT_MODE_RANDOM_LATENCY;
          obi_memory_data_cfg.drv_slv_gnt_random_latency_min == 0;
@@ -319,6 +340,10 @@ function void uvme_cv32e20_cfg_c::pre_randomize();
    else if ($test$plusargs("max_data_zero_instr_stall")) begin
       // No stalls on the I bus, max on D bus
       max_data_zero_instr_stall = 1;
+   end
+   else if ($test$plusargs("max_both_stall")) begin
+      // Randomized stalls (0-8 cycles) on both the I bus and D bus simultaneously
+      max_both_stall = 1;
    end
 
 endfunction : pre_randomize

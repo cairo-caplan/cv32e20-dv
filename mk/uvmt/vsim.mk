@@ -44,13 +44,20 @@ USES_DPI = 1
 # b=branch coverage; c=condition coverage; e=expression coverage; s=statement coverage==line; t=toggle; f=Finite State Machine coverage
 COV_TYPES              ?= bcsf
 
+# Default coverage report scope: the DUT and below only, excluding the
+# testbench itself (agents, interfaces, etc.). Used by COV_INST_ARG (below)
+# to build -instance=<path>. for the cov*/trl5_coverage_metrics targets.
+# Override e.g. `make cov_holes COV_INSTANCE=` for whole-design coverage, or
+# to any other subtree.
+COV_INSTANCE           ?= /uvmt_cv32e20_tb/dut_wrap/cv32e20_top_i
+
 # Special var to point to tool and installation dependent path of DPI headers.
 # Used to recompile dpi_dasm_spike if needed (by default, not needed).
 DPI_INCLUDE            ?= $(QUESTASIM_HOME)/include
 
 # Default flags
 VSIM_USER_FLAGS        ?=
-VOPT_COV               ?= +cover=$(COV_TYPES)+$(COV_INSTANCE).
+VOPT_COV               ?= +cover=$(COV_TYPES)$(if $(COV_INSTANCE),+$(COV_INSTANCE).)
 VSIM_COV               ?= -coverage
 VOPT_WAVES_ADV_DEBUG   ?= -designfile design.bin
 VSIM_WAVES_ADV_DEBUG   ?= -qwavedb=+signal+assertion+ignoretxntime+msgmode=both
@@ -69,7 +76,6 @@ ifeq ($(USES_DPI),1)
 	OS = $(shell uname -s | tr A-Z a-z)
  	ARCH = $(shell uname -m)
 	DPILIB_VSIM_OPT = -sv_lib $(QUESTASIM_HOME)/uvm-1.2/$(OS)_$(ARCH)/uvm_dpi
-	DPILIB_TARGET = dpi_lib$(BITS)
 	DPILIB_TARGET = dpi_lib$(BITS)
 else
 	DPILIB_VLOG_OPT = +define+UVM_NO_DPI
@@ -261,10 +267,16 @@ COV_INST_ARG = $(if $(COV_INSTANCE),-instance=$(COV_INSTANCE).,)
 COV_MERGE_TARGET =
 COV_MERGE_FIND = find $(abspath $(SIM_CFG_RESULTS)) -type f -name "*.ucdb" | grep -v merged.ucdb
 COV_MERGE_FLAGS=merge -64 -out merged.ucdb -inputs ucdb.list
+# Evaluated at parse time so it can serve as a file prerequisite list below --
+# lets 'make' skip re-merging (and skip re-running any target that depends on
+# it, e.g. cov_holes) when merged.ucdb is already newer than every per-test
+# .ucdb it would be built from.
+COV_MERGE_UCDB_LIST := $(shell $(COV_MERGE_FIND))
 
 ifeq ($(call IS_YES,$(MERGE)),YES)
 	COV_DIR=$(VSIM_COV_MERGE_DIR)
-	COV_MERGE_TARGET=cov_merge
+	COV_UCDB=merged.ucdb
+	COV_MERGE_TARGET=$(VSIM_COV_MERGE_DIR)/merged.ucdb
 	ifeq ($(call IS_YES,$(GUI)),YES)
 		# Merged coverage GUI
 		COV_FLAGS=-viewcov $(VSIM_COV_MERGE_DIR)/merged.ucdb
@@ -274,12 +286,13 @@ ifeq ($(call IS_YES,$(MERGE)),YES)
 	endif
 else
 	COV_DIR=$(SIM_RUN_RESULTS)
+	COV_UCDB=$(TEST).ucdb
 	ifeq ($(call IS_YES,$(GUI)),YES)
 		# Test coverage GUI
 		COV_FLAGS=-viewcov $(TEST).ucdb
 	else
 		# Test coverage report
-		COV_FLAGS=-c -viewcov $(TEST).ucdb -do "file delete -force $(COV_REPORT); coverage report -html -details -precision 2 -annotate $(COV_INST_ARG) -code $(bcesf) -output $(COV_REPORT); exit -f"
+		COV_FLAGS=-c -viewcov $(TEST).ucdb -do "file delete -force $(COV_REPORT); coverage report -html -details -precision 2 -annotate $(COV_INST_ARG) -code $(COV_TYPES) -output $(COV_REPORT); exit -f"
 	endif
 endif
 
@@ -308,7 +321,7 @@ endif
 ################################################################################
 # Targets
 
-.PHONY: no_rule help mk_vsim_dir lib comp opt run
+.PHONY: no_rule help mk_vsim_dir lib comp opt run cov_merge
 
 no_rule:
 	@echo 'makefile: SIMULATOR is set to $(SIMULATOR), but no rule/target specified.'
@@ -488,10 +501,21 @@ gen_ovpsim_ic:
 export IMPERAS_TOOLS=$(SIM_RUN_RESULTS)/ovpsim.ic
 
 # Target to create work directory in $(VSIM_RESULTS)/
+#
+# Always wipe and recreate rather than conditionally preserving an existing
+# library: re-running `vopt -o $(RTLSRC_VOPT_TB_TOP)` against a work library
+# that already holds an optimized snapshot from a prior `make comp` (e.g. a
+# second/third regression run reusing the same results directory) has been
+# observed to silently produce an incomplete design -- vopt exits 0 but skips
+# real elaboration (no FSM recognition messages, no +cover instrumentation
+# actually applied) with no error anywhere in the chain. `vlog` below already
+# unconditionally recompiles every source file on every `make comp` regardless
+# of whether the library is fresh, so this costs no real incremental-compile
+# time -- it just removes the possibility of a stale optimized snapshot
+# colliding with a fresh one.
 lib: mk_vsim_dir  $(CV_CORE_PKG) $(CV_VERIF_PKG) rvvi_stub $(SVLIB_PKG) $(TBSRC_PKG) $(TBSRC)
-	if [ ! -d "$(SIM_CFG_RESULTS)/$(VWORK)" ]; then \
-		$(VLIB) $(SIM_CFG_RESULTS)/$(VWORK); \
-	fi
+	rm -rf $(SIM_CFG_RESULTS)/$(VWORK)
+	$(VLIB) $(SIM_CFG_RESULTS)/$(VWORK)
 
 # Target to run vlog over SystemVerilog source in $(VSIM_RESULTS)/
 vlog: $(LIBS) lib
@@ -575,19 +599,60 @@ waves:
 
 ################################################################################
 # Invoke coverage
-cov_merge:
+#
+# merged.ucdb is a real file target, keyed on the per-test .ucdb files found
+# at parse time (COV_MERGE_UCDB_LIST): 'make cov_merge' (or any cov* target
+# with MERGE=YES, which depends on this same file via COV_MERGE_TARGET) only
+# re-merges when merged.ucdb is missing or older than one of its inputs.
+# Re-running a test regenerates that test's .ucdb with a fresh mtime, so the
+# next merge picks it up automatically -- no manual cache-busting needed.
+$(VSIM_COV_MERGE_DIR)/merged.ucdb: $(COV_MERGE_UCDB_LIST)
 	$(MKDIR_P) $(VSIM_COV_MERGE_DIR)
 	$(COV_MERGE_FIND) > $(VSIM_COV_MERGE_DIR)/ucdb.list
 	cd $(VSIM_COV_MERGE_DIR) && \
 		$(VCOVER) \
 			$(COV_MERGE_FLAGS)
+cov_merge: $(VSIM_COV_MERGE_DIR)/merged.ucdb
 cov: $(COV_MERGE_TARGET)
 	cd $(COV_DIR) && \
 		$(VSIM) \
 			$(COV_FLAGS)
 
+# Flat ASCII text coverage report, generated directly from the UCDB via vcover
+# (no vsim invocation needed). Respects MERGE/TEST/COV_INSTANCE the same way
+# the HTML 'cov' target does. Output: <COV_DIR>/$(COV_REPORT)/cov_txt
+cov_txt: $(COV_MERGE_TARGET)
+	$(MKDIR_P) $(COV_DIR)/$(COV_REPORT)
+	cd $(COV_DIR) && \
+		$(VCOVER) report \
+			-details -precision 2 -annotate $(COV_INST_ARG) -code $(COV_TYPES) \
+			-output $(COV_REPORT)/cov_txt \
+			$(COV_UCDB)
+
+# Compact "holes" report: instances/coverage-types at or above
+# COV_HOLES_THRESHOLD are omitted entirely, no source-line detail -- just
+# what's still short of the threshold. Output: <COV_DIR>/$(COV_REPORT)/cov_holes
+cov_holes: $(COV_MERGE_TARGET)
+	$(MKDIR_P) $(COV_DIR)/$(COV_REPORT)
+	cd $(COV_DIR) && \
+		$(VCOVER) report \
+			-precision 2 -below $(COV_HOLES_THRESHOLD) $(COV_INST_ARG) -code $(COV_TYPES) \
+			-output $(COV_REPORT)/cov_holes \
+			$(COV_UCDB)
+
+# Detailed "holes" report: same instance/type filtering as cov_holes, but with
+# full source-line detail (hits and misses) for whatever remains below
+# COV_HOLES_THRESHOLD. Output: <COV_DIR>/$(COV_REPORT)/cov_holes_details
+cov_holes_details: $(COV_MERGE_TARGET)
+	$(MKDIR_P) $(COV_DIR)/$(COV_REPORT)
+	cd $(COV_DIR) && \
+		$(VCOVER) report \
+			-details -precision 2 -annotate -below $(COV_HOLES_THRESHOLD) $(COV_INST_ARG) -code $(COV_TYPES) \
+			-output $(COV_REPORT)/cov_holes_details \
+			$(COV_UCDB)
+
 # Target to extract TRL5 coverage metrics
-trl5_coverage_metrics:
+trl5_coverage_metrics: $(VSIM_COV_MERGE_DIR)/merged.ucdb
 	$(MKDIR_P) $(VSIM_COV_MERGE_DIR)
 	cd $(VSIM_COV_MERGE_DIR) && \
 		COV_INSTANCE="$(COV_INSTANCE)" $(VCOVER) \
