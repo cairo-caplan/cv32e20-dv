@@ -96,7 +96,19 @@ __no_irq_handler:
     li t0, 0
     sw t0, 0(a1)
 	//j __no_irq_handler
-    
+
+    // Deassert the mm_ram timer interrupt source before we re-enable
+    // interrupts on mret.  The fast IRQ line is level-sensitive and the
+    // cve2 core provides no irq_ack, so mm_ram only drops irq_q when the
+    // timer is reprogrammed.  If we leave it asserted, the IRQ re-fires
+    // immediately on mret (before main can deassert it) and is then seen
+    // as unexpected -> _irq_fail.  Mirror generic_irq_handler in
+    // interrupt_test.c: write mask=0, then count=1 so irq_q reloads to 0.
+    li t0, 0x15000000      // TIMER_REG_ADDR
+    sw x0, 0(t0)           //   mask = 0
+    li t1, 1
+    sw t1, 4(t0)           // TIMER_VAL_ADDR: count=1 -> irq_q <= 0 next cycle
+
     // Return
     lw ra, 0(sp)
 	lw a0, 4(sp)
@@ -240,9 +252,17 @@ cont_illegal_insn:
     //clear glb_expect_illegal_insn
     sw x0, 0(a0)
 	//indicate that this was expected...
+    // During Test 18 single-step we step through this handler one instruction
+    // at a time; the puts() -> newlib loop is catastrophically slow. Skip the
+    // message during Test 18 only (hart_status==18) to stay within maxcycles.
+    la t1, glb_hart_status
+    lw t1, 0(t1)
+    li t2, 18
+    beq t1, t2, skip_illegal_puts
     la a0, expected_illegal_insn_msg
     jal ra, puts
-    //increment hart status     
+skip_illegal_puts:
+    //increment hart status
     la a0, glb_illegal_insn_status  
     lw t0, 0(a0)
     addi t0,t0,1

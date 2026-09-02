@@ -47,6 +47,7 @@ module uvmt_cv32e20_dut_wrap #(
                             uvma_interrupt_if            interrupt_if,
                             // vp_status_if is driven by ENV and used in TB
                             uvma_interrupt_if            vp_interrupt_if,
+                            uvma_debug_if                debug_if,
                             uvme_cv32e20_core_cntrl_if   core_cntrl_if,
                             uvmt_cv32e20_core_status_if  core_status_if,
                             uvma_obi_memory_if           obi_memory_instr_if,
@@ -85,6 +86,8 @@ module uvmt_cv32e20_dut_wrap #(
     assign debug_if.clk      = clknrst_if.clk;
     assign debug_if.reset_n  = clknrst_if.reset_n;
     assign debug_req_uvma    = debug_if.debug_req;
+    // FIXME: need a sol'n that does not require probing the core RTL.
+    assign debug_if.id_in_ready = cv32e20_top_i.u_cve2_top.u_cve2_core.id_stage_i.controller_i.id_in_ready_o;
 
     assign debug_req = debug_req_vp | debug_req_uvma;
 
@@ -102,6 +105,8 @@ module uvmt_cv32e20_dut_wrap #(
     assign interrupt_if.irq_id                  = cv32e20_top_i.u_cve2_top.u_cve2_core.id_stage_i.controller_i.exc_cause_o[4:0]; //irq_id;
 //    assign interrupt_if.irq_ack                 = cv32e20_top_i.u_cve2_top.u_cve2_core.id_stage_i.controller_i.handle_irq; //irq_ack;
     assign interrupt_if.irq_ack                 = (cv32e20_top_i.u_cve2_top.u_cve2_core.id_stage_i.controller_i.ctrl_fsm_cs == 4'h7);//irq_ack
+    // FIXME: need a sol'n that does not require probing the core RTL.
+    assign interrupt_if.id_in_ready             = cv32e20_top_i.u_cve2_top.u_cve2_core.id_stage_i.controller_i.id_in_ready_o;
 
     assign vp_interrupt_if.clk                  = clknrst_if.clk;
     assign vp_interrupt_if.reset_n              = clknrst_if.reset_n;
@@ -110,6 +115,8 @@ module uvmt_cv32e20_dut_wrap #(
     // was vp_interrupt_if.irq;
     assign vp_interrupt_if.irq_id               = cv32e20_top_i.u_cve2_top.u_cve2_core.id_stage_i.controller_i.exc_cause_o[4:0];    //irq_id;
     assign vp_interrupt_if.irq_ack              = (cv32e20_top_i.u_cve2_top.u_cve2_core.id_stage_i.controller_i.ctrl_fsm_cs == 4'h7);//irq_ack
+    // FIXME: need a sol'n that does not require probing the core RTL.
+    assign vp_interrupt_if.id_in_ready          = cv32e20_top_i.u_cve2_top.u_cve2_core.id_stage_i.controller_i.id_in_ready_o;
 
     assign irq = irq_uvma | irq_vp;
 
@@ -173,17 +180,17 @@ module uvmt_cv32e20_dut_wrap #(
          .x_result_i             ( '0                             ),
 
   // Interrupt inputs
-         .irq_software_i         ( 1'b0/*irq_uvma[3]*/),
-         .irq_timer_i            ( 1'b0/*irq_uvma[7]*/),
-         .irq_external_i         ( 1'b0/*irq_uvma[11]*/),
-         .irq_fast_i             ( 16'h0000/*irq_uvma[31:16]*/),
-         .irq_nm_i               ( 1'b0/*irq_uvma[0]*/),       // non-maskeable interrupt
+         .irq_software_i         ( irq_uvma[3]                    ),
+         .irq_timer_i            ( irq_uvma[7]                    ),
+         .irq_external_i         ( irq_uvma[11]                   ),
+         .irq_fast_i             ( irq_uvma[31:16]                ),
+         .irq_nm_i               ( irq_uvma[0]                    ), // non-maskable interrupt
 
   // Debug Interface
-         .debug_req_i             ( 1'b0/*debug_req_uvma*/),
+         .debug_req_i             ( debug_req_uvma ),
          .debug_halted_o          (),
-         .dm_halt_addr_i          ( 32'h1A11_0800 ),
-         .dm_exception_addr_i     ( 32'h1A14_0000 ),
+         .dm_halt_addr_i          ( 32'h1A11_0800  ),
+         .dm_exception_addr_i     ( 32'h1A14_0000  ),
          .crash_dump_o            (),
 
   // RISC-V Formal Interface

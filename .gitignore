@@ -53,3 +53,5 @@ tools/verilator*
 ucli.key
 vcs.cmd
 venv*
+/dist/
+.claude
