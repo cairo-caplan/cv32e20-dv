@@ -1,10 +1,4 @@
 {
-    "code_coverage": "99.31",
-    "functional_coverage": "100.00",
-    "pass_rate": 96.88,
-    "total_tests": 32,
-    "passed": 31,
-    "failed": 1,
     "line_coverage": "100.00",
     "condition_coverage": "100.00",
     "branch_coverage": "99.92",

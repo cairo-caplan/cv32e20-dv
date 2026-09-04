@@ -1,48 +1,130 @@
 name: Coverage Report
 
+# Manual-only trigger. The push/pull_request triggers are commented out because
+# this workflow requires a self-hosted runner with Questa Sim + licensing and the
+# CORE-V RISC-V toolchain installed on the host, so it must be invoked explicitly.
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+  # push:
+  #   branches: [ main, master ]
+  # pull_request:
+  #   branches: [ main, master ]
   workflow_dispatch:
+
+# Release creation needs contents:write; Pages deploy needs pages/id-token.
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
   coverage:
-    runs-on: ubuntu-latest # This will need to be a self-hosted runner with Questasim installed
+    # Self-hosted runner with Questa Sim (incl. licensing) and the CORE-V RISC-V
+    # toolchain installed on the host.
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
+      - name: Set up Python virtual environment
+        run: |
+          python3 -m venv venv_cv32e20-dv/
+          source venv_cv32e20-dv/bin/activate
+          pip install --upgrade pip
+          pip install -r bin/requirements.txt
+          source venv_cv32e20-dv/bin/activate
 
+      - name: Install RISC-V Toolchain
+        run: |
+          export CV_SW_TOOLCHAIN=/opt/riscv
+          echo "Ensuring RISC-V toolchain is present at $CV_SW_TOOLCHAIN"
+          if [ ! -f $CV_SW_TOOLCHAIN/bin/riscv32-corev-elf-gcc ]; then
+            echo "Toolchain not found at $CV_SW_TOOLCHAIN/bin/riscv32-corev-elf-gcc. Please ensure it is installed on the host."
+            exit 1
+          fi
+
+      - name: Set up Questa Sim
+        run: |
+          set_questa_one_2025
+
+      # Single runner for the whole coverage job. --cov-report merges every
+      # PASSing test's .ucdb and publishes coverage_report/; --all-custom picks up
+      # every test program under tests/programs/custom without a list maintained
+      # here as well. The step exits non-zero if any test failed, so it gates CI.
       - name: Run UVM Tests and Generate Coverage
         run: |
-          chmod +x bin/run_uvm_tests.py
-          ./bin/run_uvm_tests.py
+          source venv_cv32e20-dv/bin/activate
+          export CV_SW_TOOLCHAIN=/opt/riscv
+          set_questa_one_2025
+          python3 bin/run_tests.py --tb uvmt --include-corev-dv --all-custom  --cov-report
 
-      - name: Create Vendor-Neutral Coverage Directory
+      # Bundle the browsable report (dashboard + Questa HTML + vendor-neutral
+      # formats) into one archive for the release asset. Nothing is committed to
+      # the repo -- it only lives in the workflow artifact and the release.
+      - name: Archive coverage report
         run: |
-          mkdir -p coverage_report_vendor_neutral
-          cp coverage_report/lcov.info coverage_report_vendor_neutral/
-          cp coverage_report/cobertura.xml coverage_report_vendor_neutral/
-          cp coverage_report/summary.json coverage_report_vendor_neutral/
-          cp coverage_report/index.html coverage_report_vendor_neutral/
-          cp coverage_report/style.css coverage_report_vendor_neutral/
-          cp coverage_report/trl5_metrics.json coverage_report_vendor_neutral/ 2>/dev/null || true
+          cd coverage_report
+          tar -czf "$GITHUB_WORKSPACE/coverage_report.tar.gz" .
+          cd ..
+
+      # Retained as a workflow artifact so the Pages job can consume it without
+      # touching the source tree.
+      - name: Upload report artifact (for Pages)
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage_report/
+
+      # Rolling release: a single "coverage-latest" release overwritten each run,
+      # so history isn't spammed. Only cut on the default branch / manual runs,
+      # never for pull requests.
+      - name: Remove previous rolling release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete coverage-latest --yes --cleanup-tag || true
+          git push origin :refs/tags/coverage-latest || true
+
+      - name: Publish rolling release with report assets
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: coverage-latest
+          name: Coverage Report (latest)
+          body: Auto-generated CV32E20 UVM testbench coverage report. Overwritten on every run.
+          make_latest: false
+          files: |
+            coverage_report.tar.gz
+            coverage_report/cobertura.xml
+            coverage_report/summary.json
+
+  # GitHub Pages deployment via the official actions. The site is published from
+  # a workflow artifact, so no report file ever lands on the repository branch.
+  # Requires the repo's Pages "Build and deployment" source to be set to
+  # "GitHub Actions".
+  github-pages:
+    needs: coverage
+    if: github.event_name != 'pull_request'
+    # Pages deploy does not need Questa, so it can run on a hosted runner.
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # Download the report into an isolated directory so only the report files
+      # are published -- never the repository source.
+      - name: Download report artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+          path: site
+
+      - name: Upload Pages artifact
+        id: pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./coverage_report_vendor_neutral
-          destination_dir: coverage_report
-          enablement: true
-          exclude_assets: ''
-          force_orphan: true
-          keep_files: false
-          allow_empty_commit: false
-          commit_message: 'Update coverage report [skip ci]'
+        id: deployment
+        uses: actions/deploy-pages@v4

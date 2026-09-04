@@ -9,7 +9,7 @@
 <body>
     <header>
         <div class="header-left">
-            <img src="https://openhwgroup.org/wp-content/uploads/2021/06/OpenHW-Foundation-Logo.png" alt="OpenHW Foundation Logo">
+            <img src="https://openhwfoundation.org/wp-content/uploads/2025/11/OPENHW-logo_v1.png" alt="OpenHW Foundation Logo">
             <div class="header-titles">
                 <h1>CV32E20 UVM Testbench Coverage</h1>
                 <p>Automated Coverage Reports</p>
@@ -28,7 +28,7 @@
             <div class="card" id="func-coverage">
                 <h2>Functional Coverage</h2>
                 <div class="value">Loading...</div>
-                <div class="status">Percentage of tests passed</div>
+                <div class="status">Questa Sim functional coverage</div>
             </div>
             <div class="card" id="test-status">
                 <h2>Test Suite Status</h2>
@@ -62,12 +62,18 @@
                     <div class="value">Loading...</div>
                     <div class="status">FSM State Coverage</div>
                 </div>
-            </div>
+                <div class="card" id="trl5-fsm-trans">
+                    <h3>FSM Transition Coverage</h3>
+                    <div class="value">Loading...</div>
+                    <div class="status">FSM Transition Coverage</div>
+                </div>
+                </div>
         </section>
 
         <section class="links-container">
-            <a href="lcov.info" class="btn" download>Download LCOV Report</a>
             <a href="cobertura.xml" class="btn" download>Download Cobertura XML</a>
+            <a href="merged.ucis.xml" class="btn" download>Download UCIS XML</a>
+            <a href="questasim/index.html" class="btn btn-secondary" id="detailed-report-btn">Detailed coverage report</a>
         </section>
     </main>
 
@@ -81,15 +87,21 @@
                 metrics.line_coverage,
                 metrics.condition_coverage,
                 metrics.branch_coverage,
-                metrics.fsm_state_coverage
+                metrics.fsm_state_coverage,
+                metrics.fsm_transition_coverage
             ];
 
-            if (trl5Metrics.every(val => val === 100)) {
+            // No usable coverage data (e.g. no merged .ucdb) -> stay neutral.
+            if (!trl5Metrics.every(val => Number.isFinite(parseFloat(val)))) {
+                return { level: 'TRL -', class: 'trl-default' };
+            }
+
+            if (trl5Metrics.every(val => parseFloat(val) === 100)) {
                 return { level: 'TRL 5', class: 'trl-5' };
-            } else if (trl5Metrics.every(val => val >= 80)) {
+            } else if (trl5Metrics.every(val => parseFloat(val) >= 80)) {
                 return { level: 'TRL 4', class: 'trl-4' };
             } else {
-                return { level: 'TRL -', class: 'trl-default' };
+                return { level: 'TRL 3', class: 'trl-3' };
             }
         }
 
@@ -120,6 +132,9 @@
                 if (data.fsm_state_coverage) {
                     document.querySelector('#trl5-fsm .value').textContent = data.fsm_state_coverage + '%';
                 }
+                if (data.fsm_transition_coverage) {
+                    document.querySelector('#trl5-fsm-trans .value').textContent = data.fsm_transition_coverage + '%';
+                }
 
                 // Update TRL Badge
                 const trl = calculateTRL(data);
@@ -130,6 +145,19 @@
             .catch(err => {
                 console.log('Summary JSON not found, using default placeholders.');
             });
-    </script>
+
+            // Hide "Detailed coverage report" if questasim/index.html isn't published.
+            fetch('questasim/index.html', { method: 'HEAD' })
+            .then(resp => {
+                if (!resp.ok) {
+                    const btn = document.getElementById('detailed-report-btn');
+                    if (btn) btn.style.display = 'none';
+                }
+            })
+            .catch(() => {
+                const btn = document.getElementById('detailed-report-btn');
+                if (btn) btn.style.display = 'none';
+            });
+            </script>
 </body>
 </html>

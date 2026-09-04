@@ -1,11 +1,22 @@
+:root {
+    --openhw-teal: #00A9CE;     /* primary brand teal/cyan */
+    --openhw-navy: #0B2D4E;     /* dark navy accent */
+    --openhw-teal-dark: #0087A6;
+    --openhw-bg: #F4F8FB;
+    --openhw-text: #1f2933;
+    --trl-green: #1F8A4C;
+    --trl-blue:  #1B6CA8;
+    --trl-red:   #C0392B;
+    }
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
     line-height: 1.6;
-    color: #333333;
+    color: var(--openhw-text);
     max-width: 1200px;
     margin: 0 auto;
     padding: 2rem;
-    background-color: #F8F9FA;
+    background-color: var(--openhw-bg);
     }
 
     header {
@@ -15,8 +26,8 @@ body {
         gap: 2rem;
         margin-bottom: 1rem;
         padding: 0.5rem 0;
-        border-bottom: 2px solid #004C97;
-    }
+        border-bottom: 3px solid var(--openhw-navy);
+        }
 
     .header-left {
         display: flex;
@@ -34,7 +45,7 @@ body {
 
     .header-titles h1 {
         font-size: 1.8rem;
-        color: #004C97;
+        color: var(--openhw-navy);
         margin: 0;
     }
 
@@ -54,15 +65,21 @@ body {
     }
 
     .trl-5 {
-        background-color: #FFD700;
-        color: #000;
-        border: 2px solid #B8860B;
+        background-color: var(--trl-green);
+        color: #fff;
+        border: 2px solid #16653A;
     }
 
     .trl-4 {
-        background-color: #C0C0C0;
-        color: #000;
-        border: 2px solid #808080;
+        background-color: var(--trl-blue);
+        color: #fff;
+        border: 2px solid #134E7A;
+    }
+
+    .trl-3 {
+        background-color: var(--trl-red);
+        color: #fff;
+        border: 2px solid #8E2A1F;
     }
 
     .trl-default {
@@ -121,7 +138,7 @@ body {
 .card .value {
     font-size: 2.5rem;
     font-weight: bold;
-    color: #004C97;
+    color: var(--openhw-teal);
     margin-bottom: 1rem;
 }
 
@@ -131,12 +148,15 @@ body {
 }
 
 .links-container {
-    text-align: center;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
 .btn {
     display: inline-block;
-    background-color: #004C97;
+    background-color: var(--openhw-teal);
     color: white;
     padding: 1rem 2rem;
     text-decoration: none;
@@ -147,7 +167,18 @@ body {
 }
 
 .btn:hover {
-    background-color: #003a75;
+    background-color: var(--openhw-teal-dark);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    color: var(--openhw-teal-dark);
+    border: 2px solid var(--openhw-teal);
+}
+
+.btn-secondary:hover {
+    background-color: var(--openhw-teal);
+    color: #fff;
 }
 
 footer {
@@ -158,15 +189,22 @@ footer {
 }
 
 footer a {
-    color: #004C97;
+    color: var(--openhw-teal);
     text-decoration: none;
 }
 
 .trl5-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    /* Five TRL5 metrics on one row instead of wrapping the 5th onto its own line. */
+    grid-template-columns: repeat(5, 1fr);
     gap: 1.5rem;
     margin-top: 1rem;
+}
+
+@media (max-width: 900px) {
+    .trl5-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
 }
 
 .stats-container h2 {
@@ -186,7 +224,7 @@ footer a {
 
 .trl5-grid .card h3 {
     font-size: 1.1rem;
-    color: #004C97;
+    color: var(--openhw-navy);
     margin-bottom: 1rem;
 }
 
