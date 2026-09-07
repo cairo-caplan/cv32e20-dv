@@ -1,0 +1,13 @@
+name: Coverage report
+on:
+  workflow_dispatch:
+jobs:
+  coverage:
+    runs-on: self-hosted
+    steps:
+      - run: echo "Placeholder for the coverage job."
+  github-pages:
+    needs: coverage
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Placeholder for the github-pages job."
