@@ -52,7 +52,7 @@ jobs:
           export CV_SW_TOOLCHAIN=/opt/riscv
           set_questa_one_2025
           export SIMULATOR=vsim
-          python3 bin/run_tests.py --tb uvmt --include-corev-dv --all-custom  --cov-report
+          python3 bin/run_tests.py --tb uvmt --include-corev-dv --all-custom --timeout 7200 --cov-report
 
       # Bundle the browsable report (dashboard + Questa HTML + vendor-neutral
       # formats) into one archive for the release asset. Nothing is committed to
