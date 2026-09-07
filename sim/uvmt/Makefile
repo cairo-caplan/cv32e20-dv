@@ -32,7 +32,7 @@ export CV_CORE       ?= cv32e20
 
 export CV_SW_MARCH   = rv32imc_zicsr_zifencei
 CV_SW_TOOLCHAIN      ?= /opt/riscv
-CV_SW_PREFIX         ?= " "
+CV_SW_PREFIX         ?= riscv32-corev-elf-
 
 CORE_DEFINES         = +define+CV32E20_RVFI+RVFI
 
