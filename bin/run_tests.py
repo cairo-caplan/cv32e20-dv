@@ -23,7 +23,10 @@ for the verdict banner:
            "SIMULATION FAILED"  -> FAIL
 
 Anything else (no banner, build error, timeout) is reported as ERROR.
-The process exit code is 0 only if every test that was run reported PASS.
+The process exit code is 0 only if every test that was run reported PASS, unless
+--allow-failures is given (see below), in which case per-test FAIL/ERROR verdicts
+still print and are summarized but do not affect the exit code -- useful when a
+coverage/report step must run after the tests regardless of their outcome.
 
 corev-dv tests (see COREV_DV_TESTS below) additionally need `make corev-dv`
 run once beforehand to clone and compile the corev-dv/riscv-dv packages
@@ -1018,6 +1021,14 @@ def main():
     ap.add_argument("--clean-report", action="store_true",
                     help="delete coverage_report/ before regenerating it (a --cov-report "
                          "run wipes it, and the merged .ucdb, on its own)")
+    ap.add_argument("--allow-failures", action="store_true",
+                    help="exit 0 even if some selected tests FAIL or ERROR (the "
+                         "per-test verdicts are still printed and summarized). Use "
+                         "this when a downstream step (e.g. publishing coverage "
+                         "reports) must run regardless of the test outcome. Genuine "
+                         "setup failures -- 'make corev-dv'/'make comp' errors, no "
+                         "tests selected, missing sim directory -- still exit "
+                         "non-zero.")
     ap.add_argument("--quiet", action="store_true",
                     help="suppress per-test simulation banner output")
     ap.add_argument("--jobs", "-j", type=int, default=1,
@@ -1207,7 +1218,12 @@ def main():
                                   clean=clean_report)
 
     # Exit non-zero unless everything ran and passed -- which is also what makes
-    # a --cov-report batch usable as the CI gate.
+    # a --cov-report batch usable as the CI gate. --allow-failures downgrades a
+    # failing batch to exit 0 so downstream report/publish steps still run.
+    if counts["PASS"] != total and args.allow_failures:
+        print(f"\nnote: {counts['FAIL']} failed, {counts['ERROR']} error(s); "
+              "exit code forced to 0 by --allow-failures")
+        sys.exit(0)
     sys.exit(0 if counts["PASS"] == total else 1)
 
 
