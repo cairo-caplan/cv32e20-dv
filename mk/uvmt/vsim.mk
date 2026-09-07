@@ -667,6 +667,6 @@ clean:
 
 # All generated files plus the clone of the RTL
 # TODO: fix the 'clean_embench' targets
-clean_all: clean clean_rtl clean_riscv-dv clean_test_programs clean_bsp clean_compliance clean_dpi_dasm_spike clean_svlib clean_rvvi_stub clean_core_v_verif clean_spike
+clean_all: clean clean_rtl clean_riscv-dv clean_test_programs clean_bsp clean_compliance clean_dpi_dasm_spike clean_svlib clean_rvvi_stub clean_core_v_verif
 	rm -rf $(CV_CORE_PKG)
 

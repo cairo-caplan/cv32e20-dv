@@ -42,10 +42,6 @@ jobs:
             exit 1
           fi
 
-      - name: Set up Questa Sim
-        run: |
-          set_questa_one_2025
-
       # Single runner for the whole coverage job. --cov-report merges every
       # PASSing test's .ucdb and publishes coverage_report/; --all-custom picks up
       # every test program under tests/programs/custom without a list maintained
@@ -55,6 +51,7 @@ jobs:
           source venv_cv32e20-dv/bin/activate
           export CV_SW_TOOLCHAIN=/opt/riscv
           set_questa_one_2025
+          export SIMULATOR=vsim
           python3 bin/run_tests.py --tb uvmt --include-corev-dv --all-custom  --cov-report
 
       # Bundle the browsable report (dashboard + Questa HTML + vendor-neutral
