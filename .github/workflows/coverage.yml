@@ -27,13 +27,13 @@ jobs:
 
       - name: Set up Python virtual environment
         run: |
-          python3 -m venv venv_cv32e20-dv/
+          python3.14 -m venv venv_cv32e20-dv/
           source venv_cv32e20-dv/bin/activate
           pip install --upgrade pip
           pip install -r bin/requirements.txt
           source venv_cv32e20-dv/bin/activate
 
-      - name: Install RISC-V Toolchain
+      - name: Set up RISC-V Toolchain
         run: |
           export CV_SW_TOOLCHAIN=/opt/riscv
           echo "Ensuring RISC-V toolchain is present at $CV_SW_TOOLCHAIN"
