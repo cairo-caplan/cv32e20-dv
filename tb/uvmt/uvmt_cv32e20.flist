@@ -33,6 +33,7 @@
 -f ${DV_UVMA_ISACOV_PATH}/uvma_isacov_pkg.flist
 -f ${DV_UVMC_RVFI_REFERENCE_MODEL_PATH}/uvmc_rvfi_reference_model_pkg.flist
 -f ${DV_UVMC_RVFI_SCOREBOARD_PATH}/uvmc_rvfi_scoreboard_pkg.flist
+-f ${DV_UME_CVXIF_PATH}/uvme_cvxif_pkg.flist
 
 // Libraries
 -f ${DV_SVLIB_PATH}/svlib_pkg.flist

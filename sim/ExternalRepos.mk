@@ -14,10 +14,10 @@ export SHELL = /bin/bash
 #CV_CORE_BRANCH ?= main
 #CV_CORE_HASH   ?= a24bbd2
 
-CV_CORE_REPO   ?= https://github.com/MikeOpenHWGroup/cve2
-CV_CORE_BRANCH ?= rm_defunct_asserts
+CV_CORE_REPO   ?= https://github.com/cairo-caplan/cve2
+CV_CORE_BRANCH ?= tooling_update
 #CV_CORE_BRANCH ?= umode
-CV_CORE_HASH   ?= d9c8b8f
+#CV_CORE_HASH   ?= d9c8b8f
 #CV_CORE_HASH   ?= f217917
 #CV_CORE_HASH   ?= ed46a40ffd552fc7a0a590b242dcf46c4ee9cf42
 #CV_CORE_HASH   ?= facf23c030a57ab1c762968c50a5ef9ec454fd88

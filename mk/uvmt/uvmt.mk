@@ -78,6 +78,17 @@ COMPILE_SPIKE=$(USE_ISS)
 # Common configuration variables
 CFG             ?= default
 
+# Core configuration: CV32E20 (default, CV-X-IF disabled) or CV32E20X (CV-X-IF enabled).
+# CV32E20X enables the coprocessor interface (XInterface=1) in the DUT and drives
+# the +define+CVE2_XIF_ENABLE compile define so the testbench wires up the CV-X-IF.
+CVE2_CONFIG     ?= CV32E20
+ifeq (,$(filter $(CVE2_CONFIG),CV32E20 CV32E20X))
+$(error CVE2_CONFIG must be CV32E20 or CV32E20X)
+endif
+ifeq ($(CVE2_CONFIG),CV32E20X)
+SV_CMP_FLAGS    += "+define+CVE2_XIF_ENABLE"
+endif
+
 # Common Generation variables
 GEN_START_INDEX ?= 0
 GEN_NUM_TESTS   ?= 1
@@ -118,6 +129,8 @@ export DV_UVMA_DEBUG_PATH       = $(CV_VERIF_PKG)/lib/uvm_agents/uvma_debug
 export DV_UVMA_PMA_PATH         = $(CV_VERIF_PKG)/lib/uvm_agents/uvma_pma
 export DV_UVMA_OBI_MEMORY_PATH  = $(CV_VERIF_PKG)/lib/uvm_agents/uvma_obi_memory
 export DV_UVMA_FENCEI_PATH      = $(CV_VERIF_PKG)/lib/uvm_agents/uvma_fencei
+export DV_UVMA_CVXIF_PATH       = $(CV_VERIF_PKG)/lib/uvm_agents/uvma_cvxif
+export DV_UME_CVXIF_PATH        = $(CV32E20_DV)/env/uvme/cvxif
 export DV_UVML_TRN_PATH         = $(CV_VERIF_PKG)/lib/uvm_libs/uvml_trn
 export DV_UVML_LOGS_PATH        = $(CV_VERIF_PKG)/lib/uvm_libs/uvml_logs
 export DV_UVML_SB_PATH          = $(CV_VERIF_PKG)/lib/uvm_libs/uvml_sb
@@ -425,6 +438,9 @@ echo_env:
 	@echo "ENV vars set in uvmt.mk:"
 	@echo "   CV_CORE_LC                        = $(CV_CORE_LC)"
 	@echo "   CV_CORE_UC                        = $(CV_CORE_UC)"
+	@echo "   CVE2_CONFIG                       = $(CVE2_CONFIG)"
+	@echo "   DV_UVMA_CVXIF_PATH                = $(DV_UVMA_CVXIF_PATH)"
+	@echo "   DV_UME_CVXIF_PATH                 = $(DV_UME_CVXIF_PATH)"
 	@echo "   DV_UVMT_PATH                      = $(DV_UVMT_PATH)"
 	@echo "   DV_UVME_PATH                      = $(DV_UVME_PATH)"
 	@echo "   DV_UVML_HRTBT_PATH                = $(DV_UVML_HRTBT_PATH)"

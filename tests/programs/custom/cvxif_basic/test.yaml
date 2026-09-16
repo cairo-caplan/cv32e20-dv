@@ -1,0 +1,6 @@
+name: cvxif_basic
+uvm_test: uvmt_$(CV_CORE_LC)_firmware_test_c
+description: >
+    CV-X-IF basic firmware test: exercises the coprocessor-slave interface
+    with CUS-ADD instructions, verifying register read/write through the
+    CV-X-IF agent.

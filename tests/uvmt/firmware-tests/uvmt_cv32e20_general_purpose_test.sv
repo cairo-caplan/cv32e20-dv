@@ -76,7 +76,15 @@ class uvmt_cv32e20_general_purpose_test_c extends uvmt_cv32e20_base_test_c;
     */
    extern virtual task random_fetch_toggle();
 
-endclass : uvmt_cv32e20_general_purpose_test_c
+   `ifdef CVE2_XIF_ENABLE
+   /**
+    *  Fork the CV-X-IF coprocessor-slave response sequence on
+    *  vsequencer.cvxif_sequencer (CV32E20X / CVE2_XIF_ENABLE only).
+    */
+   extern virtual task cvxif_basic();
+   `endif
+
+   endclass : uvmt_cv32e20_general_purpose_test_c
 
 
 function uvmt_cv32e20_general_purpose_test_c::new(string name="uvmt_cv32e20_general_purpose_test", uvm_component parent=null);
@@ -131,6 +139,17 @@ task uvmt_cv32e20_general_purpose_test_c::run_phase(uvm_phase phase);
     join_none
    end
 
+   // The CV-X-IF slave sequence must be running before the firmware
+   // completion wait below: the firmware issues CUS-ADD instructions and
+   // cannot complete until the coprocessor slave responds to issue
+   // requests.  The sequence runs forever; join_none lets it be killed at
+   // end-of-test when the objection is dropped.
+   `ifdef CVE2_XIF_ENABLE
+   fork
+      cvxif_basic();
+   join_none
+   `endif
+
    phase.raise_objection(this);
    `uvm_info("TEST", "run_phase has raised objection...", UVM_HIGH)
    // The firmware is expected to write exit status and pass/fail indication to the Virtual Peripheral
@@ -168,6 +187,13 @@ task uvmt_cv32e20_general_purpose_test_c::reset_debug();
 endtask
 
 function void uvmt_cv32e20_general_purpose_test_c::build_phase(uvm_phase phase);
+       `ifdef CVE2_XIF_ENABLE
+       // Ensure the CV-X-IF agent is built.  The testbench already sets
+       // this under CVE2_XIF_ENABLE; re-asserting here is harmless and
+       // makes the test self-contained.
+       uvm_config_db#(bit)::set(null, "*", "xif_enabled", 1'b1);
+       `endif
+
        super.build_phase(phase);
 
        `uvm_info("TEST", "Overriding Reference Model with Spike", UVM_NONE)
@@ -232,6 +258,17 @@ task uvmt_cv32e20_general_purpose_test_c::nmi_assert();
   assert(nmi_assert_vseq.randomize());
   nmi_assert_vseq.start(vsequencer);
 endtask : nmi_assert
+
+`ifdef CVE2_XIF_ENABLE
+task uvmt_cv32e20_general_purpose_test_c::cvxif_basic();
+  uvme_cvxif_basic_seq_c basic_seq;
+
+  `uvm_info("TEST", "Starting CV-X-IF basic sequence thread in UVM test", UVM_NONE);
+
+  basic_seq = uvme_cvxif_basic_seq_c::type_id::create("basic_seq", vsequencer.cvxif_sequencer);
+  basic_seq.start(vsequencer.cvxif_sequencer);
+  endtask : cvxif_basic
+`endif
 
 task uvmt_cv32e20_general_purpose_test_c::random_fetch_toggle();
   `uvm_info("TEST", "Starting random_fetch_toggle thread in UVM test", UVM_NONE);

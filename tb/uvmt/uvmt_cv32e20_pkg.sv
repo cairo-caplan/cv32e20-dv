@@ -37,6 +37,7 @@ package uvmt_cv32e20_pkg;
 
    import uvm_pkg::*;
    import uvme_cv32e20_pkg::*;
+   import uvme_cvxif_pkg::*;
    import uvmc_rvfi_reference_model_pkg::*;
    import uvma_core_cntrl_pkg::*;
    import uvml_hrtbt_pkg::*;
@@ -58,9 +59,11 @@ package uvmt_cv32e20_pkg;
    //`include "uvmt_cv32e20_smoke_test.sv" // smoke test has multile XMRs that are illegal according to the LRM
 
    // Compilance tests
+   // (CV-X-IF coprocessor-slave support is folded into the general
+   //  purpose test, gated on CVE2_XIF_ENABLE)
    `include "uvmt_cv32e20_general_purpose_test.sv"
 
-endpackage : uvmt_cv32e20_pkg
+   endpackage : uvmt_cv32e20_pkg
 
 // All Interfaces used by the CV32E20 TB are here
 `include "uvmt_cv32e20_tb_ifs.sv"

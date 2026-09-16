@@ -51,6 +51,8 @@ package uvme_cv32e20_pkg;
    import uvma_rvfi_pkg::*;
    import uvmc_rvfi_scoreboard_pkg::*;
    import uvmc_rvfi_reference_model_pkg::*;
+   import uvme_cvxif_pkg::*;  // Moved up to ensure X_NUM_RS=2 takes precedence
+   import uvma_cvxif_pkg::*;  // Fork-local override; X_NUM_RS already set to 2
 
     // Forward decls
     typedef class uvme_cv32e20_vsqr_c;
@@ -85,6 +87,8 @@ package uvme_cv32e20_pkg;
    `include "uvme_cv32e20_random_debug_vseq.sv"
    `include "uvme_cv32e20_random_debug_reset_vseq.sv"
    `include "uvme_cv32e20_random_debug_bootset_vseq.sv"
+   `include "uvme_cvxif_basic_seq_c.sv"
+    
 
    // Environment components
    `include "uvma_cv32e20_core_cntrl_drv.sv"

@@ -165,6 +165,7 @@ endif
 VLOG_FLAGS += "+define+$(CV_CORE_UC)_TRACE_EXECUTION"
 VLOG_FLAGS += "+define+UVM"
 VLOG_FLAGS += "+define+$(CORE_DEFINES)"
+VLOG_FLAGS += $(SV_CMP_FLAGS)
 
 ###############################################################################
 # VOPT (Optimization)
@@ -266,7 +267,7 @@ COV_REPORT = cov_report
 COV_INST_ARG = $(if $(COV_INSTANCE),-instance=$(COV_INSTANCE).,)
 COV_MERGE_TARGET =
 COV_MERGE_FIND = find $(abspath $(SIM_CFG_RESULTS)) -type f -name "*.ucdb" | grep -v merged.ucdb
-COV_MERGE_FLAGS=merge -64 -out merged.ucdb -inputs ucdb.list
+COV_MERGE_FLAGS=merge -64 -testassociated -out merged.ucdb -inputs ucdb.list
 # Evaluated at parse time so it can serve as a file prerequisite list below --
 # lets 'make' skip re-merging (and skip re-running any target that depends on
 # it, e.g. cov_holes) when merged.ucdb is already newer than every per-test
@@ -282,7 +283,7 @@ ifeq ($(call IS_YES,$(MERGE)),YES)
 		COV_FLAGS=-viewcov $(VSIM_COV_MERGE_DIR)/merged.ucdb
 	else
 		# Merged coverage report
-		COV_FLAGS=-c -viewcov $(VSIM_COV_MERGE_DIR)/merged.ucdb -do "file delete -force $(COV_REPORT); coverage report -html -details -precision 2 -annotate $(COV_INST_ARG) -code $(COV_TYPES) -output $(COV_REPORT); exit -f"
+		COV_FLAGS=-c -viewcov $(VSIM_COV_MERGE_DIR)/merged.ucdb -do "file delete -force $(COV_REPORT); coverage report -html -testhitdata -details -precision 2 -annotate $(COV_INST_ARG) -code $(COV_TYPES) -output $(COV_REPORT); exit -f"
 	endif
 else
 	COV_DIR=$(SIM_RUN_RESULTS)

@@ -55,11 +55,16 @@ class uvme_cv32e20_env_c extends uvm_env;
    uvma_obi_memory_agent_c          obi_memory_instr_agent;
    uvma_obi_memory_agent_c          obi_memory_data_agent;
    uvma_rvfi_agent_c#(ILEN,XLEN)    rvfi_agent;
+   uvme_cvxif_agent_c               cvxif_agent;
 
    uvmc_rvfi_reference_model reference_model;
 
    byte vp_status_flags_symbol_present = 0;
    byte vp_virtual_printer_symbol_present = 0;
+
+   bit xif_enabled = 1'b0;
+   uvme_cvxif_cfg_c   cvxif_cfg;
+   uvme_cvxif_cntxt_c cvxif_cntxt;
 
    `uvm_component_utils_begin(uvme_cv32e20_env_c)
       `uvm_field_object(cfg  , UVM_DEFAULT)
@@ -116,6 +121,11 @@ class uvme_cv32e20_env_c extends uvm_env;
     * Creates agent components.
     */
    extern virtual function void create_agents();
+
+   /**
+    * Creates the CV-X-IF (coprocessor slave) agent when xif_enabled is set.
+    */
+   extern virtual function void create_cvxif_agent();
 
    /**
     * Creates additional (non-agent) environment components (and objects).
@@ -205,6 +215,16 @@ function void uvme_cv32e20_env_c::build_phase(uvm_phase phase);
       assign_cfg           ();
       assign_cntxt         ();
       create_agents        ();
+
+      // CV-X-IF (coprocessor slave) agent: gated on the xif_enabled bit that
+      // the testbench sets when CVE2_CONFIG=CV32E20X.  When set, build the
+      // fork-local cfg/cntxt and instantiate the derived agent in
+      // create_cvxif_agent().
+      void'(uvm_config_db#(bit)::get(this, "", "xif_enabled", xif_enabled));
+      if (xif_enabled) begin
+         create_cvxif_agent();
+      end
+
       create_env_components();
 
       if (cfg.is_active) begin
@@ -443,10 +463,31 @@ function void uvme_cv32e20_env_c::create_agents();
    obi_memory_data_agent  = uvma_obi_memory_agent_c        ::type_id::create("obi_memory_data_agent",  this);
    rvfi_agent             = uvma_rvfi_agent_c#(ILEN,XLEN)  ::type_id::create("rvfi_agent",             this);
 
-endfunction: create_agents
+   endfunction: create_agents
 
 
-function void uvme_cv32e20_env_c::create_env_components();
+   function void uvme_cv32e20_env_c::create_cvxif_agent();
+
+      // Deterministic fork-local defaults: always visible to the derived agent's
+      // get_and_set_cfg()/get_and_set_cntxt(), covering the case where the TB does
+      // not (or cannot) supply them before the agent is built.
+      if (cvxif_cfg == null) begin
+         cvxif_cfg = uvme_cvxif_cfg_c::type_id::create("cvxif_cfg");
+         void'(cvxif_cfg.randomize());
+         uvm_config_db#(uvma_cvxif_cfg_c)::set(this, "*.cvxif_agent", "cfg", cvxif_cfg);
+      end
+
+      if (cvxif_cntxt == null) begin
+         cvxif_cntxt = uvme_cvxif_cntxt_c::type_id::create("cvxif_cntxt");
+         uvm_config_db#(uvma_cvxif_cntxt_c)::set(this, "*.cvxif_agent", "cntxt", cvxif_cntxt);
+      end
+
+      cvxif_agent = uvme_cvxif_agent_c::type_id::create("cvxif_agent", this);
+
+   endfunction: create_cvxif_agent
+
+
+   function void uvme_cv32e20_env_c::create_env_components();
 
    if (cfg.scoreboard_enabled) begin
       predictor = uvme_cv32e20_prd_c::type_id::create("predictor", this);
@@ -504,6 +545,12 @@ function void uvme_cv32e20_env_c::assemble_vsequencer();
    vsequencer.debug_sequencer            = debug_agent           .sequencer;
    vsequencer.obi_memory_instr_sequencer = obi_memory_instr_agent.sequencer;
    vsequencer.obi_memory_data_sequencer  = obi_memory_data_agent .sequencer;
+
+   // CV-X-IF sequencer: gated on xif_enabled
+   void'(uvm_config_db#(bit)::get(this, "", "xif_enabled", xif_enabled));
+   if (xif_enabled) begin
+      vsequencer.cvxif_sequencer = cvxif_agent.vsequencer;
+   end
 
 endfunction: assemble_vsequencer
 

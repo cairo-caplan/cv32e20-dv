@@ -36,13 +36,14 @@ module uvmt_cv32e20_dut_wrap #(
                             parameter int unsigned MHPMCounterWidth  = 40,
                             parameter bit          RV32E             = 1'b0,
                             parameter rv32m_e      RV32M             = RV32MFast,
+                            parameter bit          XInterface        = 1'b0,
                             // Remaining parameters are used by TB components only
                             parameter int unsigned INSTR_ADDR_WIDTH    =  32,
                             parameter int unsigned INSTR_RDATA_WIDTH   =  32,
                             parameter int unsigned RAM_ADDR_WIDTH      =  22
-                           )
+                            )
 
-                           (
+                            (
                             uvma_clknrst_if              clknrst_if,
                             uvma_interrupt_if            interrupt_if,
                             // vp_status_if is driven by ENV and used in TB
@@ -51,8 +52,11 @@ module uvmt_cv32e20_dut_wrap #(
                             uvme_cv32e20_core_cntrl_if   core_cntrl_if,
                             uvmt_cv32e20_core_status_if  core_status_if,
                             uvma_obi_memory_if           obi_memory_instr_if,
-                            uvma_obi_memory_if           obi_memory_data_if
-                           );
+                            uvma_obi_memory_if           obi_memory_data_if,
+                            // CV-X-IF coprocessor slave interface, present only
+                            // when CVE2_XIF_ENABLE is defined (CV32E20X).
+                            uvma_cvxif_intf              cvx_if
+                            );
 
     // signals connecting core to memory
     logic                         instr_req;
@@ -82,6 +86,18 @@ module uvmt_cv32e20_dut_wrap #(
     logic                         debug_havereset;
     logic                         debug_running;
     logic                         debug_halted;
+
+    // Core-V Extension Interface (CV-X-IF) interconnect signals
+    logic                         x_issue_valid_o;
+    logic                         x_issue_ready_i;
+    x_issue_req_t                 x_issue_req_o;
+    x_issue_resp_t                x_issue_resp_i;
+    x_register_t                  x_register_o;
+    logic                         x_commit_valid_o;
+    x_commit_t                    x_commit_o;
+    logic                         x_result_valid_i;
+    logic                         x_result_ready_o;
+    x_result_t                    x_result_i;
 
     assign debug_if.clk      = clknrst_if.clk;
     assign debug_if.reset_n  = clknrst_if.reset_n;
@@ -122,12 +138,13 @@ module uvmt_cv32e20_dut_wrap #(
 
     // ------------------------------------------------------------------------
     // Instantiate the core
-//    cve2_top #(
+    //    cve2_top #(
     cve2_top_tracing #(
                .MHPMCounterNum   (MHPMCounterNum),
                .MHPMCounterWidth (MHPMCounterWidth),
                .RV32E            (RV32E),
-               .RV32M            (RV32M)
+               .RV32M            (RV32M),
+               .XInterface       (XInterface)
               )
     cv32e20_top_i
         (
@@ -162,22 +179,22 @@ module uvmt_cv32e20_dut_wrap #(
 
          // Core-V Extension Interface (CV-X-IF)
          // Issue Interface
-         .x_issue_valid_o        (                                ),
-         .x_issue_ready_i        ( '0                             ),
-         .x_issue_req_o          (                                ),
-         .x_issue_resp_i         ( '0                             ),
+         .x_issue_valid_o        ( x_issue_valid_o               ),
+         .x_issue_ready_i        ( x_issue_ready_i               ),
+         .x_issue_req_o          ( x_issue_req_o                 ),
+         .x_issue_resp_i         ( x_issue_resp_i                ),
 
          // Register Interface
-         .x_register_o           (                                ),
+         .x_register_o           ( x_register_o                  ),
 
          // Commit Interface
-         .x_commit_valid_o       (                                ),
-         .x_commit_o             (                                ),
+         .x_commit_valid_o       ( x_commit_valid_o              ),
+         .x_commit_o             ( x_commit_o                    ),
 
          // Result Interface
-         .x_result_valid_i       ( '0                             ),
-         .x_result_ready_o       (                                ),
-         .x_result_i             ( '0                             ),
+         .x_result_valid_i       ( x_result_valid_i              ),
+         .x_result_ready_o       ( x_result_ready_o              ),
+         .x_result_i             ( x_result_i                    ),
 
   // Interrupt inputs
          .irq_software_i         ( irq_uvma[3]                    ),
@@ -199,11 +216,65 @@ module uvmt_cv32e20_dut_wrap #(
   // CPU Control Signals
          .fetch_enable_i          (core_cntrl_if.fetch_en), // fetch_enable_t
          .core_sleep_o            ()
-        );
+         );
+
+         // ------------------------------------------------------------------------
+         // Core-V Extension Interface (CV-X-IF) wiring
+         //   When XInterface=1 the coprocessor slave interface is connected to the
+         //   cvx_if port; when XInterface=0 the coprocessor input signals are tied
+         //   off (the core's CV-X-IF logic is not instantiated in that config).
+         generate
+         if (XInterface) begin : gen_cvxif
+         // The core (cve2_pkg) and the vendored UVM agent (uvma_cvxif_pkg)
+         // declare the same-named CV-X-IF packed structs with DIFFERENT field
+         // widths (core: X_ID_WIDTH=4, X_NUM_RS=3; vendored: X_ID_WIDTH=3,
+         // X_NUM_RS=2).  A raw bit-cast between the two therefore reinterprets
+         // the bits -- e.g. the slave's 5-bit issue_resp {accept=1,writeback=01,
+         // register_read=11} zero-extends into the core's 6-bit struct as
+         // {accept=0,...}, so the core sampled issue_resp.accept==0 at the
+         // issue handshake and raised an illegal instruction (cve2_id_stage
+         // illegal_insn_o = ... & ~x_issue_resp_i.accept).  Connect field by
+         // field instead so widths are always honoured.
+
+         // Core -> agent (request / register / commit channels)
+         assign cvx_if.issue_valid                = x_issue_valid_o;
+         assign cvx_if.issue_req.instr            = x_issue_req_o.instr;
+         assign cvx_if.issue_req.hartid           = x_issue_req_o.hartid;
+         assign cvx_if.issue_req.id               = x_issue_req_o.id;
+         assign cvx_if.register.hartid            = x_register_o.hartid;
+         assign cvx_if.register.id                = x_register_o.id;
+         assign cvx_if.register.rs[0]             = x_register_o.rs[0];
+         assign cvx_if.register.rs[1]             = x_register_o.rs[1];
+         assign cvx_if.register.rs_valid[0]       = x_register_o.rs_valid[0];
+         assign cvx_if.register.rs_valid[1]       = x_register_o.rs_valid[1];
+         assign cvx_if.commit_valid                 = x_commit_valid_o;
+         assign cvx_if.commit_req.hartid            = x_commit_o.hartid;
+         assign cvx_if.commit_req.id                = x_commit_o.id;
+         assign cvx_if.commit_req.commit_kill       = x_commit_o.commit_kill;
+         assign cvx_if.result_ready                 = x_result_ready_o;
+
+         // Agent -> core (response / result channels)
+         assign x_issue_ready_i                     = cvx_if.issue_ready;
+         assign x_issue_resp_i.accept               = cvx_if.issue_resp.accept;
+         assign x_issue_resp_i.writeback            = cvx_if.issue_resp.writeback;
+         assign x_issue_resp_i.register_read        = {1'b0, cvx_if.issue_resp.register_read};
+         assign x_result_valid_i                    = cvx_if.result_valid;
+         assign x_result_i.hartid                   = cvx_if.result.hartid;
+         assign x_result_i.id                       = {1'b0, cvx_if.result.id};
+         assign x_result_i.data                     = cvx_if.result.data;
+         assign x_result_i.rd                       = cvx_if.result.rd;
+         assign x_result_i.we                       = cvx_if.result.we;
+         end else begin : gen_no_cvxif
+         assign x_issue_ready_i      = 1'b0;
+         assign x_issue_resp_i       = '0;
+         assign x_result_valid_i     = 1'b0;
+         assign x_result_i           = '0;
+         end
+         endgenerate
 
 
 
-`define RVFI_INSTR_PATH rvfi_instr_if
+         `define RVFI_INSTR_PATH rvfi_instr_if
 `define RVFI_CSR_PATH   rvfi_csr_if
 `define DUT_PATH        cv32e20_top_i
 `define CSR_PATH        `DUT_PATH.u_cve2_top.u_cve2_core.cs_registers_i

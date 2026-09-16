@@ -27,36 +27,41 @@ class uvme_cv32e20_vsqr_c extends uvm_sequencer#(
    .REQ(uvm_sequence_item),
    .RSP(uvm_sequence_item)
 );
-   
+
    // Objects
    uvme_cv32e20_cfg_c    cfg;
    uvme_cv32e20_cntxt_c  cntxt;
-   
+
    // Sequencer handles
    uvma_clknrst_sqr_c     clknrst_sequencer         ;
    uvma_interrupt_sqr_c   interrupt_sequencer       ;
    uvma_debug_sqr_c       debug_sequencer           ;
    uvma_obi_memory_sqr_c  obi_memory_instr_sequencer;
    uvma_obi_memory_sqr_c  obi_memory_data_sequencer ;
-   
-   
+
+   // CV-X-IF sequencer (gated on xif_enabled)
+   uvma_cvxif_vsqr_c     cvxif_sequencer           ;
+
+
    `uvm_component_utils_begin(uvme_cv32e20_vsqr_c)
       `uvm_field_object(cfg  , UVM_DEFAULT)
       `uvm_field_object(cntxt, UVM_DEFAULT)
+      `uvm_field_object(cvxif_sequencer, UVM_DEFAULT)
    `uvm_component_utils_end
-   
-  
+
+
    /**
     * Default constructor.
     */
    extern function new(string name="uvme_cv32e20_sqr", uvm_component parent=null);
-   
+
    /**
     * Ensures cfg & cntxt handles are not null.
     */
    extern virtual function void build_phase(uvm_phase phase);
-   
+
 endclass : uvme_cv32e20_vsqr_c
+
 
 
 function uvme_cv32e20_vsqr_c::new(string name="uvme_cv32e20_sqr", uvm_component parent=null);

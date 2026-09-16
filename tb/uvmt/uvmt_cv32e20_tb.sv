@@ -47,6 +47,12 @@ module uvmt_cv32e20_tb;
    parameter int ENV_PARAM_INSTR_DATA_WIDTH  = 32;
    parameter int ENV_PARAM_RAM_ADDR_WIDTH    = 22;
 
+   `ifdef CVE2_XIF_ENABLE
+   parameter bit DUT_WRAP_XINTERFACE = 1'b1;
+   `else
+   parameter bit DUT_WRAP_XINTERFACE = 1'b0;
+   `endif
+
    // Capture regs for test status from Virtual Peripheral in dut_wrap.mem_i
    bit        tp;
    bit        tf;
@@ -63,6 +69,14 @@ module uvmt_cv32e20_tb;
                                             .reset_n(clknrst_if.reset_n));
    uvma_obi_memory_if  obi_memory_data_if  (.clk(clknrst_if.clk),
                                             .reset_n(clknrst_if.reset_n));
+
+   // uvmt_cv32e20_dut_wrap always has a "cvx_if" port, and "dut_wrap (.*)"
+   // uses named implicit port connections: the interface instance must exist
+   // even when CVE2_XIF_ENABLE is undefined, otherwise vopt fails with
+   // (vopt-2247) for port 'cvx_if' on the base CV32E20 config.  When
+   // XInterface=0 the wrapper's generate block ties the coprocessor inputs
+   // off, so this instance simply remains unconnected to the core.
+   uvma_cvxif_intf cvx_if(.clk(clknrst_if.clk), .reset_n(clknrst_if.reset_n));
 
    // DUT Wrapper Interfaces
    uvmt_cv32e20_vp_status_if       vp_status_if(.tests_passed(),
@@ -136,7 +150,9 @@ module uvmt_cv32e20_tb;
    * This is an update of the riscv_wrapper.sv from PULP-Platform RI5CY project with
    * a few mods to bring unused ports from the CORE to this level using SV interfaces.
    */
-   uvmt_cv32e20_dut_wrap  #()
+   uvmt_cv32e20_dut_wrap  #(
+                          .XInterface(DUT_WRAP_XINTERFACE)
+                          )
                           dut_wrap (.*);
 
   bind uvmt_cv32e20_dut_wrap
@@ -351,8 +367,14 @@ module uvmt_cv32e20_tb;
      // TODO: fix this
      //uvm_config_db#(virtual RVVI_memory                      )::set(.cntxt(null), .inst_name("*.env"),                        .field_name("rvvi_memory_vif"),  .value(iss_wrap.ram.memory)                        );
 
-     // Make the DUT Wrapper Virtual Peripheral's status outputs available to the base_test
-     uvm_config_db#(bit      )::set(.cntxt(null), .inst_name("*"), .field_name("tp"),     .value(1'b0)        );
+     `ifdef CVE2_XIF_ENABLE
+          // Make the CV-X-IF agent's virtual interface handle available.
+          uvm_config_db#(virtual uvma_cvxif_intf)::set(.cntxt(null), .inst_name("*.env.cvxif_agent"), .field_name("vif"), .value(cvx_if));
+          uvm_config_db#(bit)::set(.cntxt(null), .inst_name("*"), .field_name("xif_enabled"), .value(1'b1));
+     `endif
+
+          // Make the DUT Wrapper Virtual Peripheral's status outputs available to the base_test
+          uvm_config_db#(bit      )::set(.cntxt(null), .inst_name("*"), .field_name("tp"),     .value(1'b0)        );
      uvm_config_db#(bit      )::set(.cntxt(null), .inst_name("*"), .field_name("tf"),     .value(1'b0)        );
      uvm_config_db#(bit      )::set(.cntxt(null), .inst_name("*"), .field_name("evalid"), .value(1'b0)        );
      uvm_config_db#(bit[31:0])::set(.cntxt(null), .inst_name("*"), .field_name("evalue"), .value(32'h00000000));
