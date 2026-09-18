@@ -127,7 +127,7 @@ constraint cve2_riscv_cons {
 
       ext_cv32a60x_supported == 0;
       mode_s_supported       == 0;
-      mode_u_supported       == 1;
+      mode_u_supported       == 0;
       mode_h_supported       == 0;
 
       pmp_supported          == 0;
@@ -142,15 +142,15 @@ constraint cve2_riscv_cons {
 
       pmp_regions             == 8;
       boot_addr_valid         == 1;
-      boot_addr               == 'h80000000;
+      boot_addr               == 'h4000;
       mtvec_addr_valid        == 1;
       dm_halt_addr_valid      == 1;
       dm_exception_addr_valid == 1;
       nmi_addr_valid          == 1;
 
       dram_valid              == 1;
-      dram_base               == 'h10000000;
-      dram_size               == 'hFFFF0000;
+      dram_base               == 'h0;
+      dram_size               == 'h20000000;
 
       fetch_initial_delay     == 30;
    }

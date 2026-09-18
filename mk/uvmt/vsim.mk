@@ -159,6 +159,7 @@ ifeq ($(call IS_YES,$(SPIKE)),YES)
 		VSIM_FLAGS += -sv_lib $(SPIKE_DISASM_LIB)
 		VSIM_FLAGS += -sv_lib $(SPIKE_FESVR_LIB)
 		VSIM_FLAGS += +SPIKE
+		VSIM_FLAGS += +USE_ISS
 	endif
 endif
 
