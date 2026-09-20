@@ -24,9 +24,9 @@ CV_CORE_HASH   ?= 1748dfd
 #CV_VERIF_REPO   ?= https://github.com/openhwgroup/core-v-verif
 #CV_VERIF_BRANCH ?= cv32e20-dv/dev
 #CV_VERIF_HASH   ?= 6b5a46353bf69baf4f917b9d59c5f0c68a2f529b
-CV_VERIF_REPO   ?= https://github.com/MikeOpenHWGroup/core-v-verif
-CV_VERIF_BRANCH ?= cv32e20-dv/dev
-CV_VERIF_HASH   ?= e5de68a364fff06572ef3a225bc1bc8af0bdb7e7
+CV_VERIF_REPO   ?= https://github.com/cairo-caplan/core-v-verif
+CV_VERIF_BRANCH ?= cv32e20-dv/dev_spike
+CV_VERIF_HASH   ?= 468a444194f131b48e72c372f6724134d979d7e0
 
 RISCVDV_REPO    ?= https://github.com/google/riscv-dv
 RISCVDV_BRANCH  ?= master
